@@ -95,3 +95,33 @@ class TestSoftDeleteModel:
         dead.delete()
         assert Post.all_objects.alive().count() == 1
         assert Post.all_objects.dead().count() == 1
+
+    def test_delete_records_deleted_by(self, create_user):
+        user = create_user(email="deleter@example.com")
+        obj = Post.objects.create(title="Tracked")
+        obj.delete(deleted_by=user)
+        obj.refresh_from_db()
+        assert obj.deleted_by == user
+
+    def test_delete_without_user_leaves_deleted_by_null(self):
+        obj = Post.objects.create(title="Anonymous")
+        obj.delete()
+        obj.refresh_from_db()
+        assert obj.deleted_by is None
+
+    def test_restore_clears_deleted_by(self, create_user):
+        user = create_user(email="restorer@example.com")
+        obj = Post.objects.create(title="Restored")
+        obj.delete(deleted_by=user)
+        obj.restore()
+        obj.refresh_from_db()
+        assert obj.deleted_by is None
+        assert obj.deleted_at is None
+
+    def test_queryset_delete_records_deleted_by(self, create_user):
+        user = create_user(email="bulkdeleter@example.com")
+        Post.objects.create(title="A")
+        Post.objects.create(title="B")
+        Post.objects.all().delete(deleted_by=user)
+        for post in Post.all_objects.all():
+            assert post.deleted_by == user

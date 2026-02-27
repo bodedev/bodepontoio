@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import (
     AbstractBaseUser,
     BaseUserManager,
@@ -8,8 +9,8 @@ from django.utils import timezone
 
 
 class SoftDeleteQuerySet(models.QuerySet):
-    def delete(self):
-        return self.update(deleted_at=timezone.now())
+    def delete(self, deleted_by=None):
+        return self.update(deleted_at=timezone.now(), deleted_by=deleted_by)
 
     def hard_delete(self):
         return super().delete()
@@ -44,12 +45,19 @@ class SoftDeleteModel(TimeStampedModel):
 
     - ``objects`` — default manager, excludes soft-deleted rows
     - ``all_objects`` — includes soft-deleted rows
-    - ``.delete()`` sets deleted_at instead of removing the row
+    - ``.delete(deleted_by=user)`` sets deleted_at/deleted_by instead of removing the row
     - ``.hard_delete()`` permanently removes the row
-    - ``.restore()`` clears deleted_at
+    - ``.restore()`` clears deleted_at and deleted_by
     """
 
     deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    deleted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
 
     objects = SoftDeleteManager()
     all_objects = AllObjectsManager()
@@ -57,16 +65,18 @@ class SoftDeleteModel(TimeStampedModel):
     class Meta:
         abstract = True
 
-    def delete(self, using=None, keep_parents=False):
+    def delete(self, using=None, keep_parents=False, deleted_by=None):
         self.deleted_at = timezone.now()
-        self.save(update_fields=["deleted_at"])
+        self.deleted_by = deleted_by
+        self.save(update_fields=["deleted_at", "deleted_by"])
 
     def hard_delete(self, using=None, keep_parents=False):
         super().delete(using=using, keep_parents=keep_parents)
 
     def restore(self):
         self.deleted_at = None
-        self.save(update_fields=["deleted_at"])
+        self.deleted_by = None
+        self.save(update_fields=["deleted_at", "deleted_by"])
 
     @property
     def is_deleted(self):

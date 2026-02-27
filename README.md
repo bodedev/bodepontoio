@@ -134,14 +134,35 @@ Unknown exception types fall back to the class name in `snake_case`.
 ## Base Models
 
 ```python
-from bodepontoio.base_models import TimeStampedModel, SoftDeleteModel
+from bodepontoio.models import TimeStampedModel, SoftDeleteModel
 
 class Invoice(SoftDeleteModel):
     ...
+```
 
-Invoice.objects.all()        # live rows only
-Invoice.all_objects.all()    # includes soft-deleted
-invoice.delete()             # soft delete (sets deleted_at)
-invoice.restore()            # undo soft delete
-invoice.hard_delete()        # permanent delete
+### TimeStampedModel
+
+Adds `created_at` and `updated_at` to any model.
+
+### SoftDeleteModel
+
+Extends `TimeStampedModel` with soft deletion. Fields added: `deleted_at`, `deleted_by` (FK to `AUTH_USER_MODEL`, nullable).
+
+```python
+# Querying
+Invoice.objects.all()             # live rows only (default manager)
+Invoice.all_objects.all()         # includes soft-deleted
+Invoice.all_objects.alive()       # live rows
+Invoice.all_objects.dead()        # soft-deleted rows only
+
+# Instance operations
+invoice.delete()                  # soft delete, deleted_by=None
+invoice.delete(deleted_by=user)   # soft delete, records who did it
+invoice.restore()                 # undo — clears deleted_at and deleted_by
+invoice.hard_delete()             # permanent delete
+invoice.is_deleted                # True if deleted_at is set
+
+# Bulk operations
+Invoice.objects.filter(...).delete(deleted_by=user)  # bulk soft delete
+Invoice.all_objects.hard_delete()                     # bulk permanent delete
 ```
