@@ -44,7 +44,10 @@ SIMPLE_JWT = {
 }
 
 # Optional bodepontoio overrides
-BODEPONTOIO = {"FRONTEND_URL": "https://app.example.com"}
+BODEPONTOIO = {
+    "FRONTEND_URL": "https://app.example.com",           # default: "http://localhost:3000"
+    "PASSWORD_RESET_URL_PATH": "/reset/{uid}/{token}/",  # default: "/reset-password/{uid}/{token}/"
+}
 ```
 
 ```python
@@ -121,7 +124,7 @@ All responses share a consistent envelope.
 Possible `type` values:
 - `validation_error`
 - `authentication_error`
-- `permission_error`,
+- `permission_error`
 - `not_found`
 - `parse_error`
 - `method_not_allowed`
