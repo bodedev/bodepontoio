@@ -1,27 +1,42 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
-name = "bodepontoio"
+name = "django-bodepontoio"
 version = "0.1.0"
-description = "Toolbox da Bode.io para projetos em Django"
+description = "Reusable Django authentication app with JWT and email-based user model"
 readme = "README.md"
-license = "MIT"
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = [
-    "django>=4.2",
+    "Django>=4.2",
+    "djangorestframework>=3.14",
+    "djangorestframework-simplejwt>=5.3",
+    "google-auth[requests]>=2.0",
+    "requests>=2.20",
     "dnspython>=2.0",
 ]
 
 [project.optional-dependencies]
+dev = ["pytest", "pytest-django"]
 tinify = ["tinify"]
+sentry = ["sentry-sdk"]
 
-[tool.setuptools.packages.find]
-include = ["bodepontoio*"]
+[tool.hatch.build.targets.wheel]
+packages = ["bodepontoio"]
 
-[tool.setuptools.package-data]
-bodepontoio = [
-    "assets/*.csv",
-    "templates/**/*.html",
+[tool.hatch.build.targets.wheel.force-include]
+"bodepontoio/assets" = "bodepontoio/assets"
+"bodepontoio/templates" = "bodepontoio/templates"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.test_settings"
+addopts = "--import-mode=importlib"
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0",
+    "pytest-django>=4.0",
+    "pytest-cov>=7.0.0",
 ]
