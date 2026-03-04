@@ -23,3 +23,9 @@ packages = ["bodepontoio"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "tests.test_settings"
+addopts = "--import-mode=importlib"
+
+[dependency-groups]
+dev = [
+    "pytest-cov>=7.0.0",
+]

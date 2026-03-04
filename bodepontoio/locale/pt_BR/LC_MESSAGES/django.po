@@ -16,6 +16,70 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
+# models.py — TimeStampedModel
+#: bodepontoio/models.py
+msgid "created at"
+msgstr "criado em"
+
+#: bodepontoio/models.py
+msgid "updated at"
+msgstr "atualizado em"
+
+# models.py — SoftDeleteModel
+#: bodepontoio/models.py
+msgid "deleted at"
+msgstr "excluído em"
+
+#: bodepontoio/models.py
+msgid "deleted by"
+msgstr "excluído por"
+
+# models.py — User
+#: bodepontoio/models.py
+msgid "email address"
+msgstr "endereço de e-mail"
+
+#: bodepontoio/models.py
+msgid "first name"
+msgstr "nome"
+
+#: bodepontoio/models.py
+msgid "last name"
+msgstr "sobrenome"
+
+#: bodepontoio/models.py
+msgid "active"
+msgstr "ativo"
+
+#: bodepontoio/models.py
+msgid "staff status"
+msgstr "membro da equipe"
+
+#: bodepontoio/models.py
+msgid "email verified"
+msgstr "e-mail verificado"
+
+#: bodepontoio/models.py
+msgid "date joined"
+msgstr "data de cadastro"
+
+#: bodepontoio/models.py
+msgid "groups"
+msgstr "grupos"
+
+#: bodepontoio/models.py
+msgid "user permissions"
+msgstr "permissões do usuário"
+
+#: bodepontoio/models.py
+msgid "user"
+msgstr "usuário"
+
+#: bodepontoio/models.py
+msgid "users"
+msgstr "usuários"
+
+# admin.py
 #: bodepontoio/admin.py:16
 msgid "Personal info"
 msgstr "Informações pessoais"
@@ -50,6 +114,14 @@ msgstr ""
 #: bodepontoio/serializers.py:30
 msgid "Invalid credentials."
 msgstr "Credenciais inválidas."
+
+#: bodepontoio/serializers.py:34
+msgid "Email address is not confirmed."
+msgstr "O endereço de e-mail não foi confirmado."
+
+#: bodepontoio/serializers.py
+msgid "Invalid or expired confirmation link."
+msgstr "Link de confirmação inválido ou expirado."
 
 #: bodepontoio/serializers.py:32
 msgid "User account is disabled."
@@ -99,6 +171,44 @@ msgstr "Se você não solicitou a redefinição de senha, pode ignorar este e-ma
 msgid "Your password won't change until you click the link above."
 msgstr "Sua senha não será alterada até que você clique no link acima."
 
+# emails.py + email_confirmation_email.html
+#: bodepontoio/emails.py
+#: bodepontoio/templates/bodepontoio/email_confirmation_email.html
+msgid "Confirm your email address"
+msgstr "Confirme seu endereço de e-mail"
+
+#: bodepontoio/emails.py
+#, python-format
+msgid ""
+"Click the link below to confirm your email address:\n"
+"\n"
+"%(confirm_url)s"
+msgstr ""
+"Clique no link abaixo para confirmar seu e-mail:\n"
+"\n"
+"%(confirm_url)s"
+
+# email_confirmation_email.html
+
+#: bodepontoio/templates/bodepontoio/email_confirmation_email.html
+#, python-format
+msgid ""
+"Click the button below to confirm\n"
+"                      %(email)s\n"
+"                      and activate your account."
+msgstr ""
+"Clique no botão abaixo para confirmar\n"
+"                      %(email)s\n"
+"                      e ativar sua conta."
+
+#: bodepontoio/templates/bodepontoio/email_confirmation_email.html
+msgid "Confirm Email"
+msgstr "Confirmar e-mail"
+
+#: bodepontoio/templates/bodepontoio/email_confirmation_email.html
+msgid "If you didn't create an account, you can safely ignore this email."
+msgstr "Se você não criou uma conta, pode ignorar este e-mail."
+
 # views.py
 #: bodepontoio/views.py:42
 msgid "Token is invalid or expired."
@@ -115,3 +225,11 @@ msgstr "Se esse e-mail estiver cadastrado, um link de redefinição foi enviado.
 #: bodepontoio/views.py:89
 msgid "Password has been reset."
 msgstr "A senha foi redefinida com sucesso."
+
+#: bodepontoio/views.py
+msgid "Email address confirmed."
+msgstr "Endereço de e-mail confirmado."
+
+#: bodepontoio/views.py
+msgid "If that email exists and is unconfirmed, a confirmation link has been sent."
+msgstr "Se esse e-mail estiver cadastrado e não confirmado, um link de confirmação foi enviado."

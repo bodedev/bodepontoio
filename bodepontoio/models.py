@@ -6,6 +6,7 @@ from django.contrib.auth.models import (
 )
 from django.db import models
 from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
 
 
 class SoftDeleteQuerySet(models.QuerySet):
@@ -33,8 +34,8 @@ AllObjectsManager = models.Manager.from_queryset(SoftDeleteQuerySet)
 class TimeStampedModel(models.Model):
     """Abstract base model that adds created_at and updated_at timestamps."""
 
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(_("created at"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("updated at"), auto_now=True)
 
     class Meta:
         abstract = True
@@ -50,13 +51,14 @@ class SoftDeleteModel(TimeStampedModel):
     - ``.restore()`` clears deleted_at and deleted_by
     """
 
-    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    deleted_at = models.DateTimeField(_("deleted at"), null=True, blank=True, db_index=True)
     deleted_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
         related_name="+",
+        verbose_name=_("deleted by"),
     )
 
     objects = SoftDeleteManager()
@@ -105,24 +107,27 @@ class UserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    email = models.EmailField(unique=True, db_index=True)
-    first_name = models.CharField(max_length=150, blank=True)
-    last_name = models.CharField(max_length=150, blank=True)
-    is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
-    date_joined = models.DateTimeField(default=timezone.now)
+    email = models.EmailField(_("email address"), unique=True, db_index=True)
+    first_name = models.CharField(_("first name"), max_length=150, blank=True)
+    last_name = models.CharField(_("last name"), max_length=150, blank=True)
+    is_active = models.BooleanField(_("active"), default=True)
+    is_staff = models.BooleanField(_("staff status"), default=False)
+    is_email_verified = models.BooleanField(_("email verified"), default=False)
+    date_joined = models.DateTimeField(_("date joined"), default=timezone.now)
 
     groups = models.ManyToManyField(
         "auth.Group",
         blank=True,
         related_name="users",
         related_query_name="user",
+        verbose_name=_("groups"),
     )
     user_permissions = models.ManyToManyField(
         "auth.Permission",
         blank=True,
         related_name="users",
         related_query_name="user",
+        verbose_name=_("user permissions"),
     )
 
     USERNAME_FIELD = "email"
@@ -131,8 +136,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     objects = UserManager()
 
     class Meta:
-        verbose_name = "user"
-        verbose_name_plural = "users"
+        verbose_name = _("user")
+        verbose_name_plural = _("users")
 
     def __str__(self):
         return self.email

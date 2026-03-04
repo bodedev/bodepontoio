@@ -3,7 +3,7 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .tokens import check_reset_token, decode_uid
+from .tokens import check_confirmation_token, check_reset_token, decode_uid
 
 User = get_user_model()
 
@@ -30,6 +30,8 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError(_("Invalid credentials."))
         if not user.is_active:
             raise serializers.ValidationError(_("User account is disabled."))
+        if not user.is_email_verified:
+            raise serializers.ValidationError(_("Email address is not confirmed."))
         attrs["user"] = user
         return attrs
 
@@ -64,6 +66,26 @@ class PasswordChangeSerializer(serializers.Serializer):
         if not user.check_password(value):
             raise serializers.ValidationError(_("Old password is incorrect."))
         return value
+
+
+class EmailConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+
+    def validate(self, attrs):
+        try:
+            pk = decode_uid(attrs["uid"])
+            user = User.objects.get(pk=pk)
+        except (User.DoesNotExist, ValueError, TypeError, OverflowError, Exception):
+            raise serializers.ValidationError(_("Invalid or expired confirmation link."))
+        if not check_confirmation_token(user, attrs["token"]):
+            raise serializers.ValidationError(_("Invalid or expired confirmation link."))
+        attrs["user"] = user
+        return attrs
+
+
+class ResendEmailConfirmationSerializer(serializers.Serializer):
+    email = serializers.EmailField()
 
 
 class PasswordResetRequestSerializer(serializers.Serializer):

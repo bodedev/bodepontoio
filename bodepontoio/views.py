@@ -6,14 +6,16 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .emails import send_password_reset_email
+from .emails import send_email_confirmation_email, send_password_reset_email
 from .serializers import (
+    EmailConfirmSerializer,
     LoginSerializer,
     LogoutSerializer,
     PasswordChangeSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
     RegisterSerializer,
+    ResendEmailConfirmationSerializer,
 )
 
 User = get_user_model()
@@ -48,6 +50,10 @@ class LogoutView(APIView):
 class RegisterView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
     serializer_class = RegisterSerializer
+
+    def perform_create(self, serializer):
+        user = serializer.save()
+        send_email_confirmation_email(user, self.request)
 
 
 class PasswordChangeView(APIView):
@@ -87,3 +93,30 @@ class PasswordResetConfirmView(APIView):
         user.set_password(serializer.validated_data["new_password"])
         user.save()
         return Response({"detail": _("Password has been reset.")})
+
+
+class EmailConfirmView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, uid, token):
+        serializer = EmailConfirmSerializer(data={"uid": uid, "token": token})
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data["user"]
+        user.is_email_verified = True
+        user.save(update_fields=["is_email_verified"])
+        return Response({"detail": _("Email address confirmed.")})
+
+
+class ResendEmailConfirmationView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = ResendEmailConfirmationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            user = User.objects.get(email=serializer.validated_data["email"])
+            if not user.is_email_verified:
+                send_email_confirmation_email(user, request)
+        except User.DoesNotExist:
+            pass  # Anti-enumeration: always return 200
+        return Response({"detail": _("If that email exists and is unconfirmed, a confirmation link has been sent.")})

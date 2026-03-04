@@ -65,10 +65,35 @@ python manage.py migrate
 |--------|-----|------------|-------------|
 | POST | `login/` | Public | Obtain access + refresh tokens |
 | POST | `logout/` | Authenticated | Blacklist refresh token |
-| POST | `register/` | Public | Create account, returns tokens |
+| POST | `register/` | Public | Create account, sends confirmation email |
 | POST | `password/change/` | Authenticated | Change password |
 | POST | `password/reset/` | Public | Request reset email |
 | POST | `password/reset/confirm/` | Public | Confirm reset with uid + token |
+| GET | `email/confirm/<uid>/<token>/` | Public | Confirm email address |
+| POST | `email/confirm/resend/` | Public | Re-send confirmation email |
+
+## Email Confirmation
+
+When a user registers, a confirmation email is sent automatically. **Login is blocked until the email address is confirmed.**
+
+### Flow
+
+1. User registers → confirmation email sent
+2. User clicks the link in the email → `GET email/confirm/<uid>/<token>/` → account activated
+3. User can now log in
+
+### Resend
+
+`POST email/confirm/resend/` accepts `{"email": "..."}`. It silently does nothing if the address is unknown or already confirmed (anti-enumeration).
+
+### Email template
+
+Override `bodepontoio/email_confirmation_email.html` using the standard Django template override mechanism.
+
+| Template variable | Description |
+|---|---|
+| `user` | The `User` instance |
+| `confirm_url` | Full confirmation URL |
 
 ## Password Reset Email
 

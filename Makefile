@@ -12,13 +12,13 @@ install: ## Install package and dev dependencies
 	uv pip install -e ".[dev]"
 
 test: ## Run test suite
-	uv run pytest
+	uv run python -m pytest
 
 test-v: ## Run test suite with verbose output
-	uv run pytest -v
+	uv run python -m pytest -v
 
 test-x: ## Run tests, stop on first failure
-	uv run pytest -x
+	uv run python -m pytest -x
 
 makemigrations: ## Generate migrations for bodepontoio
 	$(MANAGE) makemigrations bodepontoio --settings=$(SETTINGS)

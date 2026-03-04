@@ -1,7 +1,13 @@
 import pytest
+from django.core import mail
 from rest_framework.test import APIClient
 
 from bodepontoio.models import User
+
+
+@pytest.fixture(autouse=True)
+def reset_mail_outbox():
+    mail.outbox = []
 
 
 @pytest.fixture

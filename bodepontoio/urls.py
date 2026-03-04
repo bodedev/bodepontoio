@@ -1,12 +1,14 @@
 from django.urls import path
 
 from .views import (
+    EmailConfirmView,
     LoginView,
     LogoutView,
     PasswordChangeView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     RegisterView,
+    ResendEmailConfirmationView,
 )
 
 app_name = "bodepontoio"
@@ -21,5 +23,15 @@ urlpatterns = [
         "password/reset/confirm/",
         PasswordResetConfirmView.as_view(),
         name="password-reset-confirm",
+    ),
+    path(
+        "email/confirm/resend/",
+        ResendEmailConfirmationView.as_view(),
+        name="email-confirm-resend",
+    ),
+    path(
+        "email/confirm/<str:uid>/<str:token>/",
+        EmailConfirmView.as_view(),
+        name="email-confirm",
     ),
 ]
