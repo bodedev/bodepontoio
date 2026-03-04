@@ -1,2 +1,4 @@
 include README.md
 recursive-include bodepontoio/migrations *.py
+recursive-include bodepontoio/templates *
+recursive-include bodepontoio/locale *.po *.mo

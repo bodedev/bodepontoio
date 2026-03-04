@@ -70,6 +70,28 @@ python manage.py migrate
 | POST | `password/reset/` | Public | Request reset email |
 | POST | `password/reset/confirm/` | Public | Confirm reset with uid + token |
 
+## Password Reset Email
+
+A styled HTML email (with plain-text fallback) is sent automatically when a user requests a password reset.
+
+### Customising the template
+
+**Django template override** (no config needed): create a file at the same path inside any directory listed in `TEMPLATES[0]['DIRS']`:
+
+```
+your_project/
+  templates/
+    bodepontoio/
+      password_reset_email.html
+```
+
+### Template context
+
+| Variable | Description |
+|---|---|
+| `user` | The `User` instance requesting the reset |
+| `reset_url` | Full URL the user should click to reset their password |
+
 ## Responses
 
 All responses share a consistent envelope.

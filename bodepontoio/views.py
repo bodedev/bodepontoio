@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.utils.translation import gettext_lazy as _
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -38,7 +39,7 @@ class LogoutView(APIView):
             token.blacklist()
         except TokenError:
             return Response(
-                {"detail": "Token is invalid or expired."},
+                {"detail": _("Token is invalid or expired.")},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -59,7 +60,7 @@ class PasswordChangeView(APIView):
         serializer.is_valid(raise_exception=True)
         request.user.set_password(serializer.validated_data["new_password"])
         request.user.save()
-        return Response({"detail": "Password changed successfully."})
+        return Response({"detail": _("Password changed successfully.")})
 
 
 class PasswordResetRequestView(APIView):
@@ -73,7 +74,7 @@ class PasswordResetRequestView(APIView):
             send_password_reset_email(user)
         except User.DoesNotExist:
             pass  # Anti-enumeration: always return 200
-        return Response({"detail": "If that email exists, a reset link has been sent."})
+        return Response({"detail": _("If that email exists, a reset link has been sent.")})
 
 
 class PasswordResetConfirmView(APIView):
@@ -85,4 +86,4 @@ class PasswordResetConfirmView(APIView):
         user = serializer.validated_data["user"]
         user.set_password(serializer.validated_data["new_password"])
         user.save()
-        return Response({"detail": "Password has been reset."})
+        return Response({"detail": _("Password has been reset.")})

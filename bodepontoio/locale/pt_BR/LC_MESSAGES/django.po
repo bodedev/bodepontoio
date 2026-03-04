@@ -1,0 +1,117 @@
+# Brazilian Portuguese translations for django-bodepontoio.
+# Copyright (C) 2024
+# This file is distributed under the same license as the django-bodepontoio package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: django-bodepontoio\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-04 14:01-0300\n"
+"PO-Revision-Date: 2024-01-01 00:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: Brazilian Portuguese\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: bodepontoio/admin.py:16
+msgid "Personal info"
+msgstr "Informações pessoais"
+
+#: bodepontoio/admin.py:18
+msgid "Permissions"
+msgstr "Permissões"
+
+#: bodepontoio/admin.py:29
+msgid "Important dates"
+msgstr "Datas importantes"
+
+# emails.py
+#: bodepontoio/emails.py:28
+#: bodepontoio/templates/bodepontoio/password_reset_email.html:7
+#: bodepontoio/templates/bodepontoio/password_reset_email.html:62
+msgid "Reset your password"
+msgstr "Redefina sua senha"
+
+#: bodepontoio/emails.py:29
+#, python-format
+msgid ""
+"Click the link below to reset your password:\n"
+"\n"
+"%(reset_url)s"
+msgstr ""
+"Clique no link abaixo para redefinir sua senha:\n"
+"\n"
+"%(reset_url)s"
+
+# serializers.py
+#: bodepontoio/serializers.py:30
+msgid "Invalid credentials."
+msgstr "Credenciais inválidas."
+
+#: bodepontoio/serializers.py:32
+msgid "User account is disabled."
+msgstr "A conta do usuário está desativada."
+
+#: bodepontoio/serializers.py:65
+msgid "Old password is incorrect."
+msgstr "A senha atual está incorreta."
+
+#: bodepontoio/serializers.py:83
+msgid "Invalid uid."
+msgstr "UID inválido."
+
+#: bodepontoio/serializers.py:85
+msgid "Invalid or expired token."
+msgstr "Token inválido ou expirado."
+
+#: bodepontoio/templates/bodepontoio/password_reset_email.html:68
+#, python-format
+msgid ""
+"We received a request to reset the password for the account associated with\n"
+"                      <strong style=\"color:#1a1a2e;\">%(email)s</strong>.\n"
+"                      Click the button below to choose a new password."
+msgstr ""
+"Recebemos uma solicitação para redefinir a senha da conta associada a\n"
+"                      <strong style=\"color:#1a1a2e;\">%(email)s</strong>.\n"
+"                      Clique no botão abaixo para escolher uma nova senha."
+
+# password_reset_email.html
+#: bodepontoio/templates/bodepontoio/password_reset_email.html:83
+msgid "Reset Password"
+msgstr "Redefinir senha"
+
+#: bodepontoio/templates/bodepontoio/password_reset_email.html:92
+msgid "This link expires in 24 hours."
+msgstr "Este link expira em 24 horas."
+
+#: bodepontoio/templates/bodepontoio/password_reset_email.html:114
+msgid "If the button doesn't work, copy and paste this link into your browser:"
+msgstr "Se o botão não funcionar, copie e cole este link no seu navegador:"
+
+#: bodepontoio/templates/bodepontoio/password_reset_email.html:133
+msgid "If you didn't request a password reset, you can safely ignore this email."
+msgstr "Se você não solicitou a redefinição de senha, pode ignorar este e-mail."
+
+#: bodepontoio/templates/bodepontoio/password_reset_email.html:134
+msgid "Your password won't change until you click the link above."
+msgstr "Sua senha não será alterada até que você clique no link acima."
+
+# views.py
+#: bodepontoio/views.py:42
+msgid "Token is invalid or expired."
+msgstr "O token é inválido ou expirado."
+
+#: bodepontoio/views.py:63
+msgid "Password changed successfully."
+msgstr "Senha alterada com sucesso."
+
+#: bodepontoio/views.py:77
+msgid "If that email exists, a reset link has been sent."
+msgstr "Se esse e-mail estiver cadastrado, um link de redefinição foi enviado."
+
+#: bodepontoio/views.py:89
+msgid "Password has been reset."
+msgstr "A senha foi redefinida com sucesso."

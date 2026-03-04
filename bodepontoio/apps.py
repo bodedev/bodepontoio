@@ -17,8 +17,12 @@ class BodePontoIoConfig(AppConfig):
         required = [
             ("rest_framework", "djangorestframework"),
             ("rest_framework_simplejwt", "djangorestframework-simplejwt"),
-            ("rest_framework_simplejwt.token_blacklist", "djangorestframework-simplejwt (token_blacklist)"),
+            (
+                "rest_framework_simplejwt.token_blacklist",
+                "djangorestframework-simplejwt (token_blacklist)",
+            ),
         ]
+
         for app, pkg in required:
             if app not in installed_apps:
                 warnings.warn(
@@ -29,6 +33,6 @@ class BodePontoIoConfig(AppConfig):
 
         if getattr(settings, "AUTH_USER_MODEL", None) != "bodepontoio.User":
             warnings.warn(
-                "bodepontoio requires AUTH_USER_MODEL = \"bodepontoio.User\" in settings.",
+                'bodepontoio requires AUTH_USER_MODEL = "bodepontoio.User" in settings.',
                 stacklevel=2,
             )

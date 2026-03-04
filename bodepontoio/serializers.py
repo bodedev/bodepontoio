@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate, get_user_model
+from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -26,9 +27,9 @@ class LoginSerializer(serializers.Serializer):
             password=attrs["password"],
         )
         if not user:
-            raise serializers.ValidationError("Invalid credentials.")
+            raise serializers.ValidationError(_("Invalid credentials."))
         if not user.is_active:
-            raise serializers.ValidationError("User account is disabled.")
+            raise serializers.ValidationError(_("User account is disabled."))
         attrs["user"] = user
         return attrs
 
@@ -61,7 +62,7 @@ class PasswordChangeSerializer(serializers.Serializer):
     def validate_old_password(self, value):
         user = self.context["request"].user
         if not user.check_password(value):
-            raise serializers.ValidationError("Old password is incorrect.")
+            raise serializers.ValidationError(_("Old password is incorrect."))
         return value
 
 
@@ -79,8 +80,8 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
             pk = decode_uid(attrs["uid"])
             user = User.objects.get(pk=pk)
         except (User.DoesNotExist, ValueError, TypeError, OverflowError, Exception):
-            raise serializers.ValidationError("Invalid uid.")
+            raise serializers.ValidationError(_("Invalid uid."))
         if not check_reset_token(user, attrs["token"]):
-            raise serializers.ValidationError("Invalid or expired token.")
+            raise serializers.ValidationError(_("Invalid or expired token."))
         attrs["user"] = user
         return attrs
