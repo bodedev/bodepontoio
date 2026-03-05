@@ -6,14 +6,14 @@ A reusable Django app providing JWT authentication with an email-based custom Us
 
 - Custom `User` model with email as the unique identifier (no username)
 - JWT authentication via `djangorestframework-simplejwt`
-- Six DRF endpoints: login, logout, register, password change, password reset request, password reset confirm
+- Six DRF endpoints: login, logout, register, password change, password reset request, password reset confirm, e-mail confirmation and Google social login
 - Abstract base models: `TimeStampedModel` (timestamps) and `SoftDeleteModel` (soft deletion)
 - Standardized success and error responses across all endpoints
 
 ## Installation
 
 ```bash
-pip install git+https://github.com/your-org/bodepontoio.git@v0.1.0
+pip install git+https://github.com/bodedev/bodepontoio.git@v0.1.0
 ```
 
 ## Setup
@@ -47,6 +47,7 @@ SIMPLE_JWT = {
 BODEPONTOIO = {
     "FRONTEND_URL": "https://app.example.com",           # default: "http://localhost:3000"
     "PASSWORD_RESET_URL_PATH": "/reset/{uid}/{token}/",  # default: "/reset-password/{uid}/{token}/"
+    "GOOGLE_CLIENT_ID": "your-client-id.apps.googleusercontent.com",  # required for Google login
 }
 ```
 
@@ -71,6 +72,7 @@ python manage.py migrate
 | POST | `password/reset/confirm/` | Public | Confirm reset with uid + token |
 | GET | `email/confirm/<uid>/<token>/` | Public | Confirm email address |
 | POST | `email/confirm/resend/` | Public | Re-send confirmation email |
+| POST | `social/google/` | Public | Login or register via Google ID token |
 
 ## Email Confirmation
 
