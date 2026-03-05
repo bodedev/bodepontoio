@@ -13,6 +13,7 @@ dependencies = [
     "Django>=4.2",
     "djangorestframework>=3.14",
     "djangorestframework-simplejwt>=5.3",
+    "google-auth[requests]>=2.0"
 ]
 
 [project.optional-dependencies]
@@ -27,5 +28,7 @@ addopts = "--import-mode=importlib"
 
 [dependency-groups]
 dev = [
+    "pytest>=7.0",
+    "pytest-django>=4.0",
     "pytest-cov>=7.0.0",
 ]

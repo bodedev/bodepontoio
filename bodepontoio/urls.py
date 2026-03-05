@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     EmailConfirmView,
+    GoogleLoginView,
     LoginView,
     LogoutView,
     PasswordChangeView,
@@ -15,6 +16,7 @@ app_name = "bodepontoio"
 
 urlpatterns = [
     path("login/", LoginView.as_view(), name="login"),
+    path("social/google/", GoogleLoginView.as_view(), name="social-google"),
     path("logout/", LogoutView.as_view(), name="logout"),
     path("register/", RegisterView.as_view(), name="register"),
     path("password/change/", PasswordChangeView.as_view(), name="password-change"),

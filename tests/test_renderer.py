@@ -95,7 +95,7 @@ class TestRendererIntegration:
         )
         body = response.json()
         assert body["success"] is True
-        assert "access" in body["data"]
+        assert isinstance(body["data"], str)
 
     def test_logout_wire_format(self, auth_client):
         client, user = auth_client

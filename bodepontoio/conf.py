@@ -4,6 +4,7 @@ from django.test.signals import setting_changed
 DEFAULTS = {
     "FRONTEND_URL": "http://localhost:3000",
     "PASSWORD_RESET_URL_PATH": "/reset-password/{uid}/{token}/",
+    "GOOGLE_CLIENT_ID": None,
 }
 
 

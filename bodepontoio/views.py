@@ -9,6 +9,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .emails import send_email_confirmation_email, send_password_reset_email
 from .serializers import (
     EmailConfirmSerializer,
+    GoogleLoginSerializer,
     LoginSerializer,
     LogoutSerializer,
     PasswordChangeSerializer,
@@ -30,6 +31,15 @@ class LoginView(APIView):
         return Response(serializer.data)
 
 
+class GoogleLoginView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        serializer = GoogleLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.data)
+
+
 class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -47,13 +57,18 @@ class LogoutView(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class RegisterView(generics.CreateAPIView):
+class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
-    serializer_class = RegisterSerializer
 
-    def perform_create(self, serializer):
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        send_email_confirmation_email(user, self.request)
+        send_email_confirmation_email(user, request)
+        return Response(
+            str(_("Registration successful. Please check your email to confirm your account.")),
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class PasswordChangeView(APIView):

@@ -61,8 +61,7 @@ class TestRegisterView:
             },
         )
         assert response.status_code == 201
-        assert "access" in response.data
-        assert "refresh" in response.data
+        assert isinstance(response.data, str)
 
     def test_register_duplicate_email(self, api_client, create_user):
         create_user(email="existing@example.com")
