@@ -3,6 +3,7 @@ from datetime import datetime
 from django.contrib.auth.models import User
 from django.contrib.auth.signals import user_logged_in
 from django.db import models
+from django.utils.text import slugify
 
 from bodepontoio.models_managers import ComExcluidosManager, SemExcluidosManager
 from bodepontoio.utils.cleaners import get_client_ip
@@ -105,3 +106,38 @@ def save_login_record(sender, user, request, **kwargs):
 
 
 user_logged_in.connect(save_login_record)
+
+
+class ConsultaCEP(BaseModel):
+    """Modelo para armazenar consultas de CEP em cache."""
+
+    cep = models.CharField("CEP", max_length=9, unique=True, db_index=True)
+    logradouro = models.CharField("Logradouro", max_length=255, blank=True)
+    complemento = models.CharField("Complemento", max_length=255, blank=True)
+    bairro = models.CharField("Bairro", max_length=255, blank=True)
+    localidade = models.CharField("Cidade", max_length=255)
+    uf = models.CharField("UF", max_length=2)
+    ibge = models.CharField("Código IBGE", max_length=10, blank=True)
+    ddd = models.CharField("DDD", max_length=3, blank=True)
+    localidade_slug = models.SlugField("Slug da Cidade", max_length=255, db_index=True)
+    fonte = models.CharField(
+        "Fonte",
+        max_length=20,
+        choices=[
+            ("viacep", "ViaCEP"),
+            ("awesomeapi", "AwesomeAPI"),
+        ],
+    )
+
+    def save(self, *args, **kwargs):
+        if not self.localidade_slug and self.localidade:
+            self.localidade_slug = slugify(self.localidade)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.cep} - {self.localidade}/{self.uf}"
+
+    class Meta:
+        ordering = ["-created"]
+        verbose_name = "Consulta CEP"
+        verbose_name_plural = "Consultas CEP"
