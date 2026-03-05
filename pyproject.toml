@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bodepontoio"
+version = "0.1.0"
+description = "Toolbox da Bode.io para projetos em Django"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "django>=4.2",
+    "dnspython>=2.0",
+]
+
+[project.optional-dependencies]
+tinify = ["tinify"]
+
+[tool.setuptools.packages.find]
+include = ["bodepontoio*"]
+
+[tool.setuptools.package-data]
+bodepontoio = [
+    "assets/*.csv",
+    "templates/**/*.html",
+]
