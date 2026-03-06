@@ -57,7 +57,7 @@ class SoftDeleteModel(TimeStampedModel):
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name="+",
+        related_name="deleted_%(app_label)s_%(class)s",
         verbose_name="excluído por",
     )
 
