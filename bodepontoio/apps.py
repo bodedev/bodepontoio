@@ -11,6 +11,7 @@ class BodePontoIoConfig(AppConfig):
 
     def ready(self):
         import bodepontoio.conf  # noqa: F401 — eagerly catches misconfiguration at startup
+        import bodepontoio.signals  # noqa: F401 — register signal handlers
 
         installed_apps = settings.INSTALLED_APPS
 

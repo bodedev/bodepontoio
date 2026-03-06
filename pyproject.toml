@@ -13,14 +13,22 @@ dependencies = [
     "Django>=4.2",
     "djangorestframework>=3.14",
     "djangorestframework-simplejwt>=5.3",
-    "google-auth[requests]>=2.0"
+    "google-auth[requests]>=2.0",
+    "requests>=2.20",
+    "dnspython>=2.0",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-django"]
+tinify = ["tinify"]
+sentry = ["sentry-sdk"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["bodepontoio"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"bodepontoio/assets" = "bodepontoio/assets"
+"bodepontoio/templates" = "bodepontoio/templates"
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "tests.test_settings"

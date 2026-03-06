@@ -6,6 +6,7 @@ from django.contrib.auth.models import (
 )
 from django.db import models
 from django.utils import timezone
+from django.utils.text import slugify
 
 
 class SoftDeleteQuerySet(models.QuerySet):
@@ -146,3 +147,78 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def get_short_name(self):
         return self.first_name
+
+
+class Pais(TimeStampedModel):
+    nome = models.CharField("nome", max_length=75, unique=True)
+    capital = models.CharField("capital", max_length=75, db_index=True)
+    codigo_3 = models.CharField("código 3 dígitos", max_length=3, unique=True)
+    codigo_2 = models.CharField("código 2 dígitos", max_length=2, unique=True)
+
+    def __str__(self):
+        return self.nome
+
+    class Meta:
+        ordering = ("nome",)
+        verbose_name = "país"
+        verbose_name_plural = "países"
+
+
+class LoginRecord(TimeStampedModel):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        on_delete=models.SET_NULL,
+        verbose_name="usuário",
+    )
+    ip = models.GenericIPAddressField("endereço IP", null=True, blank=True, editable=False)
+
+    def __str__(self):
+        return str(self.user)
+
+    class Meta:
+        ordering = ("-created_at",)
+        verbose_name = "login"
+        verbose_name_plural = "logins"
+
+
+class ConsultaCEP(TimeStampedModel):
+    cep = models.CharField("CEP", max_length=9, unique=True, db_index=True)
+    logradouro = models.CharField("logradouro", max_length=255, blank=True)
+    complemento = models.CharField("complemento", max_length=255, blank=True)
+    bairro = models.CharField("bairro", max_length=255, blank=True)
+    localidade = models.CharField("cidade", max_length=255)
+    uf = models.CharField("UF", max_length=2)
+    ibge = models.CharField("código IBGE", max_length=10, blank=True)
+    ddd = models.CharField("DDD", max_length=3, blank=True)
+    localidade_slug = models.SlugField("slug da cidade", max_length=255, db_index=True)
+    fonte = models.CharField(
+        "fonte",
+        max_length=20,
+        choices=[
+            ("viacep", "ViaCEP"),
+            ("awesomeapi", "AwesomeAPI"),
+        ],
+    )
+
+    def save(self, *args, **kwargs):
+        if not self.localidade_slug and self.localidade:
+            self.localidade_slug = slugify(self.localidade)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.cep} - {self.localidade}/{self.uf}"
+
+    class Meta:
+        ordering = ("-created_at",)
+        verbose_name = "consulta CEP"
+        verbose_name_plural = "consultas CEP"
+
+
+class OptimizedImageWithTinyPNG(SoftDeleteModel):
+    path = models.CharField("caminho", max_length=255, db_index=True)
+
+    class Meta:
+        ordering = ("-id",)
+        verbose_name = "imagem otimizada com TinyPNG"
+        verbose_name_plural = "imagens otimizadas com TinyPNG"
