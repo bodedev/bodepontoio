@@ -1,6 +1,5 @@
 from django.contrib.auth import authenticate, get_user_model
 from django.core.exceptions import ImproperlyConfigured
-from django.utils.translation import gettext_lazy as _
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
 from rest_framework import serializers
@@ -32,11 +31,11 @@ class LoginSerializer(serializers.Serializer):
             password=attrs["password"],
         )
         if not user:
-            raise serializers.ValidationError(_("Invalid credentials."))
+            raise serializers.ValidationError("Credenciais inválidas.")
         if not user.is_active:
-            raise serializers.ValidationError(_("User account is disabled."))
+            raise serializers.ValidationError("Conta de usuário desativada.")
         if not user.is_email_verified:
-            raise serializers.ValidationError(_("Email address is not confirmed."))
+            raise serializers.ValidationError("Endereço de e-mail não confirmado.")
         attrs["user"] = user
         return attrs
 
@@ -66,7 +65,7 @@ class PasswordChangeSerializer(serializers.Serializer):
     def validate_old_password(self, value):
         user = self.context["request"].user
         if not user.check_password(value):
-            raise serializers.ValidationError(_("Old password is incorrect."))
+            raise serializers.ValidationError("Senha antiga incorreta.")
         return value
 
 
@@ -80,11 +79,11 @@ class EmailConfirmSerializer(serializers.Serializer):
             user = User.objects.get(pk=pk)
         except (User.DoesNotExist, ValueError, TypeError, OverflowError, Exception):
             raise serializers.ValidationError(
-                _("Invalid or expired confirmation link.")
+                "Link de confirmação inválido ou expirado."
             )
         if not check_confirmation_token(user, attrs["token"]):
             raise serializers.ValidationError(
-                _("Invalid or expired confirmation link.")
+                "Link de confirmação inválido ou expirado."
             )
         attrs["user"] = user
         return attrs
@@ -113,7 +112,7 @@ class GoogleLoginSerializer(serializers.Serializer):
             )
 
         except ValueError:
-            raise AuthenticationFailed(_("Invalid Google ID token."))
+            raise AuthenticationFailed("Token de ID do Google inválido.")
 
         email = id_info["email"]
         first_name = id_info.get("given_name", "")
@@ -135,7 +134,7 @@ class GoogleLoginSerializer(serializers.Serializer):
             user.save(update_fields=["is_email_verified"])
 
         if not user.is_active:
-            raise AuthenticationFailed(_("User account is disabled."))
+            raise AuthenticationFailed("Conta de usuário desativada.")
 
         attrs["user"] = user
         return attrs
@@ -154,8 +153,8 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
             pk = decode_uid(attrs["uid"])
             user = User.objects.get(pk=pk)
         except (User.DoesNotExist, ValueError, TypeError, OverflowError, Exception):
-            raise serializers.ValidationError(_("Invalid uid."))
+            raise serializers.ValidationError("UID inválido.")
         if not check_reset_token(user, attrs["token"]):
-            raise serializers.ValidationError(_("Invalid or expired token."))
+            raise serializers.ValidationError("Token inválido ou expirado.")
         attrs["user"] = user
         return attrs

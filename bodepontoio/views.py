@@ -1,5 +1,4 @@
 from django.contrib.auth import get_user_model
-from django.utils.translation import gettext_lazy as _
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -46,15 +45,17 @@ class LogoutView(APIView):
     def post(self, request):
         serializer = LogoutSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
         try:
             token = RefreshToken(serializer.validated_data["refresh"])
             token.blacklist()
         except TokenError:
             return Response(
-                {"detail": _("Token is invalid or expired.")},
+                "Token inválido ou expirado.",
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        return Response(status=status.HTTP_204_NO_CONTENT)
+
+        return Response()
 
 
 class RegisterView(APIView):
@@ -66,7 +67,7 @@ class RegisterView(APIView):
         user = serializer.save()
         send_email_confirmation_email(user, request)
         return Response(
-            str(_("Registration successful. Please check your email to confirm your account.")),
+            "Cadastro realizado com sucesso. Verifique seu e-mail para confirmar sua conta.",
             status=status.HTTP_201_CREATED,
         )
 
@@ -81,7 +82,7 @@ class PasswordChangeView(APIView):
         serializer.is_valid(raise_exception=True)
         request.user.set_password(serializer.validated_data["new_password"])
         request.user.save()
-        return Response({"detail": _("Password changed successfully.")})
+        return Response("Senha alterada com sucesso.")
 
 
 class PasswordResetRequestView(APIView):
@@ -95,7 +96,7 @@ class PasswordResetRequestView(APIView):
             send_password_reset_email(user)
         except User.DoesNotExist:
             pass  # Anti-enumeration: always return 200
-        return Response({"detail": _("If that email exists, a reset link has been sent.")})
+        return Response("Se esse e-mail existir, um link de redefinição foi enviado.")
 
 
 class PasswordResetConfirmView(APIView):
@@ -107,7 +108,7 @@ class PasswordResetConfirmView(APIView):
         user = serializer.validated_data["user"]
         user.set_password(serializer.validated_data["new_password"])
         user.save()
-        return Response({"detail": _("Password has been reset.")})
+        return Response("Senha redefinida com sucesso.")
 
 
 class EmailConfirmView(APIView):
@@ -119,7 +120,7 @@ class EmailConfirmView(APIView):
         user = serializer.validated_data["user"]
         user.is_email_verified = True
         user.save(update_fields=["is_email_verified"])
-        return Response({"detail": _("Email address confirmed.")})
+        return Response("Endereço de e-mail confirmado.")
 
 
 class ResendEmailConfirmationView(APIView):
@@ -134,4 +135,6 @@ class ResendEmailConfirmationView(APIView):
                 send_email_confirmation_email(user, request)
         except User.DoesNotExist:
             pass  # Anti-enumeration: always return 200
-        return Response({"detail": _("If that email exists and is unconfirmed, a confirmation link has been sent.")})
+        return Response(
+            "Se esse e-mail existir e não estiver confirmado, um link de confirmação foi enviado."
+        )
