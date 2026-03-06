@@ -155,8 +155,8 @@ All responses share a consistent envelope.
     "success": false,
     "type": "validation_error",
     "errors": [
-        {"field": "email", "message": "This field is required."},
-        {"field": "non_field_errors", "message": "Invalid credentials."}
+        {"field": "email", "message": "Este campo é obrigatório."},
+        {"field": "non_field_errors", "message": "Credenciais inválidas."}
     ]
 }
 ```
@@ -166,7 +166,7 @@ All responses share a consistent envelope.
 {
     "success": false,
     "type": "authentication_error",
-    "error": "Authentication credentials were not provided."
+    "error": "As credenciais de autenticação não foram fornecidas."
 }
 ```
 
