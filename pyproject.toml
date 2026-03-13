@@ -27,3 +27,7 @@ bodepontoio = [
     "assets/*.csv",
     "templates/**/*.html",
 ]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.test_settings"
+addopts = "--import-mode=importlib"

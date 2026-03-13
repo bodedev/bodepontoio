@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.contrib.auth.signals import user_logged_in
 from django.db import models
@@ -94,6 +95,22 @@ class OptimizedImageWithTinyPNG(LogicDeletable):
         ]
         verbose_name = 'Optimized Image With Tiny PNG'
         verbose_name_plural = 'Optimized Images With Tiny PNG'
+
+
+class UserProfile(BaseModel):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='profile',
+    )
+    is_email_verified = models.BooleanField('e-mail verificado', default=False)
+
+    class Meta:
+        verbose_name = 'perfil de usuário'
+        verbose_name_plural = 'perfis de usuário'
+
+    def __str__(self):
+        return str(self.user)
 
 
 def save_login_record(sender, user, request, **kwargs):
