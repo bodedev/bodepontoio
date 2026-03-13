@@ -7,7 +7,7 @@ Toolbox da Bode.io para projetos em Django — JWT authentication, utility model
 - JWT authentication via `djangorestframework-simplejwt`
 - DRF endpoints: login, logout, register, password change, password reset request/confirm, e-mail confirmation and Google social login
 - Abstract base models: `BaseModel` (timestamps) and `LogicDeletable` (soft deletion)
-- Built-in models: `Pais`, `LoginRecord`, `ConsultaCEP`, `OptimizedImageWithTinyPNG`
+- Built-in models: `UserProfile`, `Pais`, `LoginRecord`, `ConsultaCEP`, `OptimizedImageWithTinyPNG`
 - CEP lookup service with ViaCEP / AwesomeAPI fallback and database caching
 - Login tracking via Django signals
 - Utility functions: file cleaners, date/string/number formatters, workday calculator, email obfuscation, MX-validating form field, PBKDF2 hashing, pagination fix, MySQL `ROUND`
@@ -234,6 +234,21 @@ invoice.reativar()                # undo — clears excluido, excluido_em, exclu
 ```
 
 ## Built-in Models
+
+### UserProfile
+
+Extends Django's built-in `auth.User` via a `OneToOneField` to store auth-related state that doesn't belong on the User model itself. A profile is created automatically for every new user via a `post_save` signal — no manual setup required.
+
+Access it via the `profile` reverse relation:
+
+```python
+user.profile.is_email_verified  # bool
+```
+
+| Field | Type |
+|-------|------|
+| `user` | OneToOneField to `auth.User` |
+| `is_email_verified` | BooleanField (default: `False`) |
 
 ### Pais
 
