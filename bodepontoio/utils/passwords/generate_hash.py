@@ -36,5 +36,5 @@ def verify_password_pbkdf2(stored: str, password: str) -> bool:
         expected = bytes.fromhex(parts[3])
         dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations, dklen=len(expected))
         return hmac.compare_digest(dk, expected)
-    except Exception:
+    except (ValueError, TypeError, IndexError):
         return False
