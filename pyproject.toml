@@ -12,10 +12,12 @@ requires-python = ">=3.10"
 dependencies = [
     "django>=4.2",
     "dnspython>=2.0",
+    "requests>=2.28",
 ]
 
 [project.optional-dependencies]
 tinify = ["tinify"]
+sentry = ["sentry-sdk"]
 
 [tool.setuptools.packages.find]
 include = ["bodepontoio*"]

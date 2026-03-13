@@ -23,7 +23,7 @@ class ValidatingEmailField(EmailField):
             # Make sure the domain exists
             try:
                 logger.debug('Checking domain %s', domain)
-                dns.resolver.query(domain, 'MX')
+                dns.resolver.resolve(domain, 'MX')
             except dns.exception.DNSException as e:
                 logger.debug('Domain %s does not exist.', e)
                 raise ValidationError("Este e-mail não é válido!")

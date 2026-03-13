@@ -19,5 +19,5 @@ class Command(BaseCommand):
                 codigo_3=row['3 letras'],
                 codigo_2=row['2 letras'],
             )
-            print(f'{pais.codigo_2}: {created}')
-        print('Fim de processo!')
+            self.stdout.write(f'{pais.codigo_2}: {created}')
+        self.stdout.write(self.style.SUCCESS('Fim de processo!'))
