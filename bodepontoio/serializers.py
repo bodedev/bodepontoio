@@ -34,6 +34,8 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError("Credenciais inválidas.")
         if not user.is_active:
             raise serializers.ValidationError("Conta de usuário desativada.")
+        if not user.profile.is_email_verified:
+            raise serializers.ValidationError("Endereço de e-mail não confirmado.")
         attrs["user"] = user
         return attrs
 
@@ -133,6 +135,10 @@ class GoogleLoginSerializer(serializers.Serializer):
         if created:
             user.set_unusable_password()
             user.save(update_fields=["password"])
+
+        profile, _ = user.profile.__class__.objects.get_or_create(user=user)
+        profile.is_email_verified = True
+        profile.save(update_fields=["is_email_verified"])
 
         if not user.is_active:
             raise AuthenticationFailed("Conta de usuário desativada.")

@@ -22,7 +22,7 @@ def check_reset_token(user, token):
 
 class EmailConfirmationTokenGenerator(PasswordResetTokenGenerator):
     def _make_hash_value(self, user, timestamp):
-        return f"{user.pk}{timestamp}{user.is_active}"
+        return f"{user.pk}{timestamp}{user.profile.is_email_verified}"
 
 
 email_confirmation_token_generator = EmailConfirmationTokenGenerator()

@@ -1,12 +1,11 @@
-from django.contrib.auth.signals import user_logged_in
-
-from bodepontoio.utils.cleaners import get_client_ip
-
-
-def save_login_record(sender, user, request, **kwargs):
-    from bodepontoio.models import LoginRecord
-
-    LoginRecord.objects.create(user=user, ip=get_client_ip(request))
+from django.contrib.auth import get_user_model
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 
-user_logged_in.connect(save_login_record)
+@receiver(post_save, sender=get_user_model())
+def create_user_profile(sender, instance, created, **kwargs):
+    from bodepontoio.models import UserProfile
+
+    if created:
+        UserProfile.objects.get_or_create(user=instance)
