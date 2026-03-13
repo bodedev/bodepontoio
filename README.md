@@ -16,7 +16,8 @@ Toolbox da Bode.io para projetos em Django — JWT authentication, utility model
 - Utility functions: file cleaners, date/string/number formatters, workday calculator, email obfuscation, MX-validating form field, PBKDF2 hashing, pagination fix, MySQL `ROUND`
 - Template tags: `grana` (R$ formatting), `multiply`, `roi`, `url_replace`
 - Sentry metrics helpers (optional)
-- Management commands: country import, TinyPNG image compression
+- Geographic reference data for Brazil: regiões, UFs, and municípios via `bodepontoio.geo`
+- Management commands: country import, TinyPNG image compression, IBGE geo data import
 - Standardized success and error responses across all endpoints
 
 ## Installation
@@ -439,3 +440,61 @@ python manage.py compress_images_with_tinify --folders media/uploads/
 ```
 
 Already-compressed images are tracked in `OptimizedImageWithTinyPNG` and skipped on subsequent runs.
+
+## Geo
+
+`bodepontoio.geo` is an optional sub-app providing Brazilian geographic reference data: regiões, UFs (states), and municípios (~5570), sourced from the IBGE API.
+
+### Setup
+
+Add to `INSTALLED_APPS` and include the URLs:
+
+```python
+INSTALLED_APPS = [
+    ...
+    "bodepontoio.geo",
+]
+```
+
+```python
+# urls.py
+path("api/geo/", include("bodepontoio.geo.urls")),
+```
+
+```bash
+python manage.py migrate
+python manage.py import_geo_data
+```
+
+### Models
+
+| Model | Description |
+|-------|-------------|
+| `Regiao` | 5 macro-regions (`id`, `nome`, `sigla`) |
+| `UF` | 27 states/DF (`id`, `nome`, `sigla`, `regiao`) |
+| `Municipio` | ~5570 municipalities (`id`, `nome`, `uf`) |
+
+IDs match IBGE codes. Data is read-only reference data.
+
+### Endpoints
+
+All endpoints are public (no authentication required).
+
+| Method | URL | Description |
+|--------|-----|-------------|
+| GET | `api/geo/regioes/` | List all regions |
+| GET | `api/geo/regioes/{id}/` | Retrieve a region |
+| GET | `api/geo/ufs/` | List all states |
+| GET | `api/geo/ufs/?regiao={id}` | Filter states by region |
+| GET | `api/geo/ufs/{id}/` | Retrieve a state |
+| GET | `api/geo/municipios/` | List all municipalities |
+| GET | `api/geo/municipios/?uf={id}` | Filter municipalities by state |
+| GET | `api/geo/municipios/{id}/` | Retrieve a municipality |
+
+### import_geo_data
+
+Fetches live data from the IBGE Localidades API and upserts all records. Safe to re-run.
+
+```bash
+python manage.py import_geo_data
+```

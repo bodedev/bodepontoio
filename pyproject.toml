@@ -24,7 +24,7 @@ tinify = ["tinify"]
 sentry = ["sentry-sdk"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["bodepontoio"]
+packages = ["bodepontoio", "bodepontoio.geo"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "bodepontoio/assets" = "bodepontoio/assets"
