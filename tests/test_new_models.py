@@ -16,7 +16,7 @@ class TestPais:
             nome="Brasil", capital="Brasília", codigo_3="BRA", codigo_2="BR"
         )
         assert pais.nome == "Brasil"
-        assert pais.created_at is not None
+        assert pais.created is not None
 
     def test_str(self):
         pais = Pais.objects.create(
@@ -43,7 +43,7 @@ class TestLoginRecord:
         record = LoginRecord.objects.create(user=user, ip="192.168.1.1")
         assert record.user == user
         assert record.ip == "192.168.1.1"
-        assert record.created_at is not None
+        assert record.created is not None
 
     def test_str(self, create_user):
         user = create_user()
@@ -71,16 +71,16 @@ class TestOptimizedImageWithTinyPNG:
     def test_create(self):
         img = OptimizedImageWithTinyPNG.objects.create(path="/media/test.png")
         assert img.path == "/media/test.png"
-        assert img.created_at is not None
+        assert img.created is not None
 
     def test_soft_delete(self):
         img = OptimizedImageWithTinyPNG.objects.create(path="/media/test.png")
         img.delete()
         assert OptimizedImageWithTinyPNG.objects.count() == 0
-        assert OptimizedImageWithTinyPNG.all_objects.count() == 1
+        assert OptimizedImageWithTinyPNG.com_excluidos.count() == 1
 
-    def test_restore(self):
+    def test_reativar(self):
         img = OptimizedImageWithTinyPNG.objects.create(path="/media/test.png")
         img.delete()
-        img.restore()
+        img.reativar()
         assert OptimizedImageWithTinyPNG.objects.count() == 1

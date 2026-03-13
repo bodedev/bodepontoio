@@ -25,7 +25,7 @@ class Command(BaseCommand):
                     for name in files:
                         if name.endswith(('.png', '.jpg', '.jpeg')):
                             img_path = os.path.join(root, name)
-                            if OptimizedImageWithTinyPNG.all_objects.filter(path=img_path).exists():
+                            if OptimizedImageWithTinyPNG.com_excluidos.filter(path=img_path).exists():
                                 self.stdout.write(f'Imagem {img_path} já foi otimizada')
                                 continue
                             img_size = os.path.getsize(root + '/' + name)

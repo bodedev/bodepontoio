@@ -1,127 +1,94 @@
 import pytest
 
-from bodepontoio.models import SoftDeleteModel, TimeStampedModel
+from bodepontoio.models import BaseModel, LogicDeletable
 from tests.testapp.models import Article, Post
 
 
 # ---------------------------------------------------------------------------
-# TimeStampedModel
+# BaseModel
 # ---------------------------------------------------------------------------
 
 @pytest.mark.django_db
-class TestTimeStampedModel:
+class TestBaseModel:
     def test_is_abstract(self):
-        assert TimeStampedModel._meta.abstract
+        assert BaseModel._meta.abstract
 
-    def test_created_at_set_on_create(self):
+    def test_created_set_on_create(self):
         obj = Article.objects.create(title="Hello")
-        assert obj.created_at is not None
+        assert obj.created is not None
 
-    def test_updated_at_changes_on_save(self):
+    def test_updated_changes_on_save(self):
         obj = Article.objects.create(title="Hello")
-        original = obj.updated_at
+        original = obj.updated
         obj.title = "Updated"
         obj.save()
         obj.refresh_from_db()
-        assert obj.updated_at >= original
+        assert obj.updated >= original
 
 
 # ---------------------------------------------------------------------------
-# SoftDeleteModel
+# LogicDeletable
 # ---------------------------------------------------------------------------
 
 @pytest.mark.django_db
-class TestSoftDeleteModel:
+class TestLogicDeletable:
     def test_is_abstract(self):
-        assert SoftDeleteModel._meta.abstract
+        assert LogicDeletable._meta.abstract
 
-    def test_delete_sets_deleted_at(self):
+    def test_delete_sets_excluido(self):
         obj = Post.objects.create(title="Gone")
         obj.delete()
         obj.refresh_from_db()
-        assert obj.deleted_at is not None
+        assert obj.excluido is True
 
-    def test_is_deleted_property(self):
-        obj = Post.objects.create(title="Ghost")
-        assert not obj.is_deleted
+    def test_delete_sets_excluido_em(self):
+        obj = Post.objects.create(title="Gone")
         obj.delete()
-        assert obj.is_deleted
+        obj.refresh_from_db()
+        assert obj.excluido_em is not None
 
     def test_default_manager_excludes_deleted(self):
         Post.objects.create(title="Visible")
-        hidden = Post.objects.create(title="Hidden")
+        hidden = Post.com_excluidos.create(title="Hidden")
         hidden.delete()
         titles = list(Post.objects.values_list("title", flat=True))
         assert "Visible" in titles
         assert "Hidden" not in titles
 
-    def test_all_objects_includes_deleted(self):
+    def test_com_excluidos_includes_deleted(self):
         Post.objects.create(title="Visible")
-        hidden = Post.objects.create(title="Hidden")
+        hidden = Post.com_excluidos.create(title="Hidden")
         hidden.delete()
-        titles = list(Post.all_objects.values_list("title", flat=True))
+        titles = list(Post.com_excluidos.values_list("title", flat=True))
         assert "Visible" in titles
         assert "Hidden" in titles
 
-    def test_restore(self):
+    def test_reativar(self):
         obj = Post.objects.create(title="Temp")
         obj.delete()
         assert Post.objects.count() == 0
-        obj.restore()
+        obj.reativar()
         assert Post.objects.count() == 1
-        assert not obj.is_deleted
+        assert obj.excluido is False
 
-    def test_hard_delete_removes_row(self):
-        obj = Post.objects.create(title="Permanent")
-        obj.hard_delete()
-        assert Post.all_objects.count() == 0
+    def test_reativar_clears_excluido_por(self, create_user):
+        user = create_user(email="restorer@example.com")
+        obj = Post.objects.create(title="Restored")
+        obj.logic_delete(user)
+        obj.reativar()
+        obj.refresh_from_db()
+        assert obj.excluido_por is None
+        assert obj.excluido_em is None
 
-    def test_queryset_delete_soft_deletes_all(self):
-        Post.objects.create(title="A")
-        Post.objects.create(title="B")
-        Post.objects.all().delete()
-        assert Post.objects.count() == 0
-        assert Post.all_objects.count() == 2
-
-    def test_queryset_hard_delete(self):
-        Post.objects.create(title="A")
-        Post.objects.create(title="B")
-        Post.all_objects.hard_delete()
-        assert Post.all_objects.count() == 0
-
-    def test_queryset_alive_and_dead(self):
-        Post.objects.create(title="Alive")
-        dead = Post.objects.create(title="Dead")
-        dead.delete()
-        assert Post.all_objects.alive().count() == 1
-        assert Post.all_objects.dead().count() == 1
-
-    def test_delete_records_deleted_by(self, create_user):
+    def test_logic_delete_records_excluido_por(self, create_user):
         user = create_user(email="deleter@example.com")
         obj = Post.objects.create(title="Tracked")
-        obj.delete(deleted_by=user)
+        obj.logic_delete(user)
         obj.refresh_from_db()
-        assert obj.deleted_by == user
+        assert obj.excluido_por == user
 
-    def test_delete_without_user_leaves_deleted_by_null(self):
+    def test_delete_without_user_leaves_excluido_por_null(self):
         obj = Post.objects.create(title="Anonymous")
         obj.delete()
         obj.refresh_from_db()
-        assert obj.deleted_by is None
-
-    def test_restore_clears_deleted_by(self, create_user):
-        user = create_user(email="restorer@example.com")
-        obj = Post.objects.create(title="Restored")
-        obj.delete(deleted_by=user)
-        obj.restore()
-        obj.refresh_from_db()
-        assert obj.deleted_by is None
-        assert obj.deleted_at is None
-
-    def test_queryset_delete_records_deleted_by(self, create_user):
-        user = create_user(email="bulkdeleter@example.com")
-        Post.objects.create(title="A")
-        Post.objects.create(title="B")
-        Post.objects.all().delete(deleted_by=user)
-        for post in Post.all_objects.all():
-            assert post.deleted_by == user
+        assert obj.excluido_por is None

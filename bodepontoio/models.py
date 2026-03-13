@@ -1,88 +1,135 @@
+from datetime import datetime
+
 from django.conf import settings
-from django.contrib.auth.models import (
-    AbstractBaseUser,
-    BaseUserManager,
-    PermissionsMixin,
-)
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
-from django.utils import timezone
 from django.utils.text import slugify
+from django.utils import timezone
+
+from bodepontoio.models_managers import ComExcluidosManager, SemExcluidosManager
 
 
-class SoftDeleteQuerySet(models.QuerySet):
-    def delete(self, deleted_by=None):
-        return self.update(deleted_at=timezone.now(), deleted_by=deleted_by)
-
-    def hard_delete(self):
-        return super().delete()
-
-    def alive(self):
-        return self.filter(deleted_at__isnull=True)
-
-    def dead(self):
-        return self.filter(deleted_at__isnull=False)
-
-
-class SoftDeleteManager(models.Manager.from_queryset(SoftDeleteQuerySet)):
-    def get_queryset(self):
-        return SoftDeleteQuerySet(self.model, using=self._db).alive()
-
-
-AllObjectsManager = models.Manager.from_queryset(SoftDeleteQuerySet)
-
-
-class TimeStampedModel(models.Model):
-    """Abstract base model that adds created_at and updated_at timestamps."""
-
-    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
-    updated_at = models.DateTimeField(auto_now=True, db_index=True)
+class BaseModel(models.Model):
+    created = models.DateTimeField(editable=False, auto_now_add=True, db_index=True)
+    updated = models.DateTimeField(editable=False, auto_now=True, db_index=True)
 
     class Meta:
         abstract = True
 
 
-class SoftDeleteModel(TimeStampedModel):
-    """Abstract base model with timestamps and soft deletion.
+class Pais(BaseModel):
+    nome = models.CharField(max_length=75, unique=True)
+    capital = models.CharField(max_length=75, db_index=True)
+    codigo_3 = models.CharField('Código 3 Dígitos', max_length=3, unique=True)
+    codigo_2 = models.CharField('Código 2 Dígitos', max_length=2, unique=True)
 
-    - ``objects`` — default manager, excludes soft-deleted rows
-    - ``all_objects`` — includes soft-deleted rows
-    - ``.delete(deleted_by=user)`` sets deleted_at/deleted_by instead of removing the row
-    - ``.hard_delete()`` permanently removes the row
-    - ``.restore()`` clears deleted_at and deleted_by
+    def __str__(self):
+        return self.nome
+
+    class Meta:
+        ordering = ('nome',)
+        verbose_name = 'País'
+        verbose_name_plural = 'Países'
+
+
+class LoginRecord(BaseModel):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    ip = models.GenericIPAddressField(null=True, blank=True, editable=False)
+
+    def __str__(self):
+        return str(self.user)
+
+    class Meta:
+        ordering = ('-created',)
+        verbose_name = 'Login'
+        verbose_name_plural = 'Logins'
+
+
+class LogicDeletable(BaseModel):
+    """
+    Classe que fornece funcionalidade pra delete lógico de um modelo.
+
+    Pode armazenar quem deletou e quando, também pode reativar o modelo.
+    Já possui managers pra filtrar excluídos e não excluídos.
     """
 
-    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)
-    deleted_by = models.ForeignKey(
+    excluido = models.BooleanField(default=False, db_index=True)
+    excluido_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
+        related_name='%(class)s_excluido_por',
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
-        related_name="deleted_%(app_label)s_%(class)s",
     )
+    excluido_em = models.DateTimeField(null=True, blank=True)
 
-    objects = SoftDeleteManager()
-    all_objects = AllObjectsManager()
+    objects = SemExcluidosManager()
+    com_excluidos = ComExcluidosManager()
+
+    def delete(self, using=None):
+        self.excluido = True
+        self.excluido_em = datetime.now()
+        self.save()
+
+    def logic_delete(self, user, using=None):
+        self.excluido_por = user
+        self.save()
+        self.delete(using)
+
+    def reativar(self):
+        self.excluido = False
+        self.excluido_por = None
+        self.excluido_em = None
+        self.save()
 
     class Meta:
         abstract = True
 
-    def delete(self, using=None, keep_parents=False, deleted_by=None):
-        self.deleted_at = timezone.now()
-        self.deleted_by = deleted_by
-        self.save(update_fields=["deleted_at", "deleted_by"])
 
-    def hard_delete(self, using=None, keep_parents=False):
-        super().delete(using=using, keep_parents=keep_parents)
+class OptimizedImageWithTinyPNG(LogicDeletable):
+    path = models.CharField(max_length=255, db_index=True)
 
-    def restore(self):
-        self.deleted_at = None
-        self.deleted_by = None
-        self.save(update_fields=["deleted_at", "deleted_by"])
+    class Meta:
+        ordering = [
+            '-id',
+        ]
+        verbose_name = 'Optimized Image With Tiny PNG'
+        verbose_name_plural = 'Optimized Images With Tiny PNG'
 
-    @property
-    def is_deleted(self):
-        return self.deleted_at is not None
 
+class ConsultaCEP(BaseModel):
+    """Modelo para armazenar consultas de CEP em cache."""
+
+    cep = models.CharField("CEP", max_length=9, unique=True, db_index=True)
+    logradouro = models.CharField("Logradouro", max_length=255, blank=True)
+    complemento = models.CharField("Complemento", max_length=255, blank=True)
+    bairro = models.CharField("Bairro", max_length=255, blank=True)
+    localidade = models.CharField("Cidade", max_length=255)
+    uf = models.CharField("UF", max_length=2)
+    ibge = models.CharField("Código IBGE", max_length=10, blank=True)
+    ddd = models.CharField("DDD", max_length=3, blank=True)
+    localidade_slug = models.SlugField("Slug da Cidade", max_length=255, db_index=True)
+    fonte = models.CharField(
+        "Fonte",
+        max_length=20,
+        choices=[
+            ("viacep", "ViaCEP"),
+            ("awesomeapi", "AwesomeAPI"),
+        ],
+    )
+
+    def save(self, *args, **kwargs):
+        if not self.localidade_slug and self.localidade:
+            self.localidade_slug = slugify(self.localidade)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.cep} - {self.localidade}/{self.uf}"
+
+    class Meta:
+        ordering = ["-created"]
+        verbose_name = "Consulta CEP"
+        verbose_name_plural = "Consultas CEP"
 
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -146,78 +193,3 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def get_short_name(self):
         return self.first_name
-
-
-class Pais(TimeStampedModel):
-    nome = models.CharField("nome", max_length=75, unique=True)
-    capital = models.CharField("capital", max_length=75, db_index=True)
-    codigo_3 = models.CharField("código 3 dígitos", max_length=3, unique=True)
-    codigo_2 = models.CharField("código 2 dígitos", max_length=2, unique=True)
-
-    def __str__(self):
-        return self.nome
-
-    class Meta:
-        ordering = ("nome",)
-        verbose_name = "país"
-        verbose_name_plural = "países"
-
-
-class LoginRecord(TimeStampedModel):
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        null=True,
-        on_delete=models.SET_NULL,
-        verbose_name="usuário",
-    )
-    ip = models.GenericIPAddressField("endereço IP", null=True, blank=True, editable=False)
-
-    def __str__(self):
-        return str(self.user)
-
-    class Meta:
-        ordering = ("-created_at",)
-        verbose_name = "login"
-        verbose_name_plural = "logins"
-
-
-class ConsultaCEP(TimeStampedModel):
-    cep = models.CharField("CEP", max_length=9, unique=True, db_index=True)
-    logradouro = models.CharField("logradouro", max_length=255, blank=True)
-    complemento = models.CharField("complemento", max_length=255, blank=True)
-    bairro = models.CharField("bairro", max_length=255, blank=True)
-    localidade = models.CharField("cidade", max_length=255)
-    uf = models.CharField("UF", max_length=2)
-    ibge = models.CharField("código IBGE", max_length=10, blank=True)
-    ddd = models.CharField("DDD", max_length=3, blank=True)
-    localidade_slug = models.SlugField("slug da cidade", max_length=255, db_index=True)
-    fonte = models.CharField(
-        "fonte",
-        max_length=20,
-        choices=[
-            ("viacep", "ViaCEP"),
-            ("awesomeapi", "AwesomeAPI"),
-        ],
-    )
-
-    def save(self, *args, **kwargs):
-        if not self.localidade_slug and self.localidade:
-            self.localidade_slug = slugify(self.localidade)
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"{self.cep} - {self.localidade}/{self.uf}"
-
-    class Meta:
-        ordering = ("-created_at",)
-        verbose_name = "consulta CEP"
-        verbose_name_plural = "consultas CEP"
-
-
-class OptimizedImageWithTinyPNG(SoftDeleteModel):
-    path = models.CharField("caminho", max_length=255, db_index=True)
-
-    class Meta:
-        ordering = ("-id",)
-        verbose_name = "imagem otimizada com TinyPNG"
-        verbose_name_plural = "imagens otimizadas com TinyPNG"

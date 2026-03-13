@@ -9,7 +9,7 @@ Toolbox da Bode.io para projetos em Django — JWT authentication, utility model
 - Custom `User` model with email as the unique identifier (no username)
 - JWT authentication via `djangorestframework-simplejwt`
 - DRF endpoints: login, logout, register, password change, password reset request/confirm, e-mail confirmation and Google social login
-- Abstract base models: `TimeStampedModel` (timestamps) and `SoftDeleteModel` (soft deletion)
+- Abstract base models: `BaseModel` (timestamps) and `LogicDeletable` (soft deletion)
 - Built-in models: `Pais`, `LoginRecord`, `ConsultaCEP`, `OptimizedImageWithTinyPNG`
 - CEP lookup service with ViaCEP / AwesomeAPI fallback and database caching
 - Login tracking via Django signals
@@ -211,37 +211,29 @@ Unknown exception types fall back to the class name in `snake_case`.
 ## Base Models
 
 ```python
-from bodepontoio.models import TimeStampedModel, SoftDeleteModel
+from bodepontoio.models import BaseModel, LogicDeletable
 
-class Invoice(SoftDeleteModel):
+class Invoice(LogicDeletable):
     ...
 ```
 
-### TimeStampedModel
+### BaseModel
 
-Adds `created_at` and `updated_at` to any model.
+Adds `created` and `updated` (both `DateTimeField`, auto-managed) to any model.
 
-### SoftDeleteModel
+### LogicDeletable
 
-Extends `TimeStampedModel` with soft deletion. Fields added: `deleted_at`, `deleted_by` (FK to `AUTH_USER_MODEL`, nullable).
+Extends `BaseModel` with soft deletion. Fields added: `excluido` (bool), `excluido_em` (datetime), `excluido_por` (FK to `AUTH_USER_MODEL`, nullable).
 
 ```python
 # Querying
 Invoice.objects.all()             # live rows only (default manager)
-Invoice.all_objects.all()         # includes soft-deleted
-Invoice.all_objects.alive()       # live rows
-Invoice.all_objects.dead()        # soft-deleted rows only
+Invoice.com_excluidos.all()       # includes soft-deleted rows
 
 # Instance operations
-invoice.delete()                  # soft delete, deleted_by=None
-invoice.delete(deleted_by=user)   # soft delete, records who did it
-invoice.restore()                 # undo — clears deleted_at and deleted_by
-invoice.hard_delete()             # permanent delete
-invoice.is_deleted                # True if deleted_at is set
-
-# Bulk operations
-Invoice.objects.filter(...).delete(deleted_by=user)  # bulk soft delete
-Invoice.all_objects.hard_delete()                     # bulk permanent delete
+invoice.delete()                  # soft delete (excluido=True, excluido_em=now)
+invoice.logic_delete(user)        # soft delete, records who did it in excluido_por
+invoice.reativar()                # undo — clears excluido, excluido_em, excluido_por
 ```
 
 ## Built-in Models
@@ -285,7 +277,7 @@ Cache for CEP lookups. Populated automatically by the [CEP Service](#cep-service
 
 ### OptimizedImageWithTinyPNG
 
-Tracks images compressed by the `compress_images_with_tinify` command. Inherits `SoftDeleteModel`.
+Tracks images compressed by the `compress_images_with_tinify` command. Inherits `LogicDeletable`.
 
 | Field | Type |
 |-------|------|

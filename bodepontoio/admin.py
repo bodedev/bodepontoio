@@ -46,9 +46,9 @@ class LoginRecordAdmin(admin.ModelAdmin):
     readonly_fields = ("user",)
 
     def data(self, obj):
-        return obj.created_at.strftime("%d/%m/%Y %H:%M:%S")
+        return obj.created.strftime("%d/%m/%Y %H:%M:%S")
 
-    data.admin_order_field = "created_at"
+    data.admin_order_field = "created"
     data.short_description = "Data/Hora"
 
     def has_delete_permission(self, request, obj=None):
@@ -67,12 +67,12 @@ class PaisAdmin(admin.ModelAdmin):
 @admin.register(OptimizedImageWithTinyPNG)
 class OptimizedImageWithTinyPNGAdmin(admin.ModelAdmin):
     list_display = ("id", "data", "path")
-    exclude = ("deleted_at", "deleted_by")
+    exclude = ("excluido", "excluido_por", "excluido_em")
 
     def data(self, obj):
-        return obj.created_at.strftime("%d/%m/%Y %H:%M:%S")
+        return obj.created.strftime("%d/%m/%Y %H:%M:%S")
 
-    data.admin_order_field = "created_at"
+    data.admin_order_field = "created"
     data.short_description = "Data/Hora"
 
 
@@ -83,13 +83,13 @@ class ConsultaCEPAdmin(admin.ModelAdmin):
     search_fields = ("cep", "localidade", "logradouro", "bairro")
     readonly_fields = (
         "cep", "logradouro", "complemento", "bairro", "localidade", "uf",
-        "ibge", "ddd", "localidade_slug", "fonte", "created_at", "updated_at",
+        "ibge", "ddd", "localidade_slug", "fonte", "created", "updated",
     )
 
     def data(self, obj):
-        return obj.created_at.strftime("%d/%m/%Y %H:%M:%S")
+        return obj.created.strftime("%d/%m/%Y %H:%M:%S")
 
-    data.admin_order_field = "created_at"
+    data.admin_order_field = "created"
     data.short_description = "Data/Hora"
 
     def has_add_permission(self, request):
