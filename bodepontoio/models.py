@@ -1,8 +1,7 @@
-from datetime import datetime
-
 from django.contrib.auth.models import User
 from django.contrib.auth.signals import user_logged_in
 from django.db import models
+from django.utils import timezone
 from django.utils.text import slugify
 
 from bodepontoio.models_managers import ComExcluidosManager, SemExcluidosManager
@@ -68,7 +67,7 @@ class LogicDeletable(BaseModel):
 
     def delete(self, using=None):
         self.excluido = True
-        self.excluido_em = datetime.now()
+        self.excluido_em = timezone.now()
         self.save()
 
     def logic_delete(self, user, using=None):
