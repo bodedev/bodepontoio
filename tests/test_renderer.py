@@ -73,7 +73,7 @@ class TestSuccessJSONRenderer:
 @pytest.mark.django_db
 class TestRendererIntegration:
     def test_login_wire_format(self, api_client, create_user):
-        create_user(email="render@example.com", password="testpassword123", is_email_verified=True)
+        create_user(email="render@example.com", password="testpassword123")
         response = api_client.post(
             "/auth/login/",
             {"email": "render@example.com", "password": "testpassword123"},

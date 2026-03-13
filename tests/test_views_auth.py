@@ -5,11 +5,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 @pytest.mark.django_db
 class TestLoginView:
     def test_login_success(self, api_client, create_user):
-        create_user(
-            email="login@example.com",
-            password="testpassword123",
-            is_email_verified=True,
-        )
+        create_user(email="login@example.com", password="testpassword123")
         response = api_client.post(
             "/auth/login/",
             {"email": "login@example.com", "password": "testpassword123"},

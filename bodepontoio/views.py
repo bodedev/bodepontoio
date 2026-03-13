@@ -117,9 +117,6 @@ class EmailConfirmView(APIView):
     def get(self, request, uid, token):
         serializer = EmailConfirmSerializer(data={"uid": uid, "token": token})
         serializer.is_valid(raise_exception=True)
-        user = serializer.validated_data["user"]
-        user.is_email_verified = True
-        user.save(update_fields=["is_email_verified"])
         return Response("Endereço de e-mail confirmado.")
 
 
@@ -131,8 +128,7 @@ class ResendEmailConfirmationView(APIView):
         serializer.is_valid(raise_exception=True)
         try:
             user = User.objects.get(email=serializer.validated_data["email"])
-            if not user.is_email_verified:
-                send_email_confirmation_email(user, request)
+            send_email_confirmation_email(user, request)
         except User.DoesNotExist:
             pass  # Anti-enumeration: always return 200
         return Response(
