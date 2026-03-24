@@ -18,6 +18,11 @@ dependencies = [
 [project.optional-dependencies]
 tinify = ["tinify"]
 sentry = ["sentry-sdk"]
+auth = [
+    "djangorestframework>=3.14",
+    "djangorestframework-simplejwt>=5.0",
+    "google-auth>=2.0",
+]
 
 [tool.setuptools.packages.find]
 include = ["bodepontoio*"]
@@ -27,3 +32,7 @@ bodepontoio = [
     "assets/*.csv",
     "templates/**/*.html",
 ]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "bodepontoio.tests.test_settings"
+addopts = "--import-mode=importlib"
