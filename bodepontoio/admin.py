@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from bodepontoio.models import ConsultaCEP, LoginRecord, OptimizedImageWithTinyPNG, Pais
+from bodepontoio.models import ConsultaCEP, LoginRecord, OptimizedImageWithTinyPNG, Pais, UserAuth
 
 FORMATO_DATA_HORA_PADRAO_ADMIN = '%d/%m/%Y %H:%M:%S'
 FORMATO_DATA_SIMPLIFICADO = "%d/%m/%Y"
@@ -95,7 +95,42 @@ class ConsultaCEPAdmin(admin.ModelAdmin):
         return False
 
 
+class UserAuthAdmin(admin.ModelAdmin):
+    list_display = (
+        'id',
+        'user',
+        'email',
+        'is_email_verified',
+        'data',
+    )
+    search_fields = (
+        'user__email',
+        'user__username',
+    )
+    list_filter = ('is_email_verified',)
+    readonly_fields = ('user',)
+
+    def email(self, obj):
+        return obj.user.email
+
+    email.admin_order_field = 'user__email'
+    email.short_description = 'E-mail'
+
+    def data(self, obj):
+        return obj.created.strftime(FORMATO_DATA_HORA_PADRAO_ADMIN)
+
+    data.admin_order_field = 'created'
+    data.short_description = 'Data/Hora'
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 admin.site.register(ConsultaCEP, ConsultaCEPAdmin)
 admin.site.register(LoginRecord, LoginRecordAdmin)
 admin.site.register(OptimizedImageWithTinyPNG, OptimizedImageWithTinyPNGAdmin)
 admin.site.register(Pais, PaisAdmin)
+admin.site.register(UserAuth, UserAuthAdmin)

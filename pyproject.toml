@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
+requires = ["setuptools>=68.0", "setuptools-scm>=8", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "bodepontoio"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Toolbox da Bode.io para projetos em Django"
 readme = "README.md"
 license = "MIT"
@@ -23,6 +23,10 @@ auth = [
     "djangorestframework-simplejwt>=5.0",
     "google-auth>=2.0",
 ]
+dev = [
+    "pytest>=7.0",
+    "pytest-django>=4.5",
+]
 
 [tool.setuptools.packages.find]
 include = ["bodepontoio*"]
@@ -32,6 +36,10 @@ bodepontoio = [
     "assets/*.csv",
     "templates/**/*.html",
 ]
+
+[tool.setuptools_scm]
+version_scheme = "guess-next-dev"
+local_scheme = "no-local-version"
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "bodepontoio.tests.test_settings"
