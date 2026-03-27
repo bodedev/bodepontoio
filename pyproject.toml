@@ -23,6 +23,10 @@ auth = [
     "djangorestframework-simplejwt>=5.0",
     "google-auth>=2.0",
 ]
+dev = [
+    "pytest>=7.0",
+    "pytest-django>=4.5",
+]
 
 [tool.setuptools.packages.find]
 include = ["bodepontoio*"]
