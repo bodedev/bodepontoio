@@ -6,6 +6,9 @@ DEFAULTS = {
     "PASSWORD_RESET_URL_PATH": "/reset-password/{uid}/{token}/",
     "EMAIL_CONFIRM_URL_PATH": "/confirm-email/{uid}/{token}/",
     "GOOGLE_CLIENT_ID": None,
+    "API_DEBUG_LOGGER_ENABLED": False,
+    "API_DEBUG_LOGGER_PATH_PREFIX": "/api/",
+    "API_DEBUG_LOGGER_MAX_BODY_CHARS": 6000,
 }
 
 
