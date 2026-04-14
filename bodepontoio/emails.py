@@ -18,6 +18,7 @@ def send_password_reset_email(user):
     context = {
         "user": user,
         "reset_url": reset_url,
+        "brand_color": bodepontoio_settings.EMAIL_BRAND_COLOR,
     }
     html_message = render_to_string(
         "bodepontoio/password_reset_email.html", context
@@ -45,6 +46,7 @@ def send_email_confirmation_email(user, request):
     context = {
         "user": user,
         "confirm_url": confirm_url,
+        "brand_color": bodepontoio_settings.EMAIL_BRAND_COLOR,
     }
     html_message = render_to_string(
         "bodepontoio/email_confirmation_email.html", context
