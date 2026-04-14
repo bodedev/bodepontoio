@@ -25,6 +25,7 @@ dependencies = [
     { name = "django", version = "5.2.12", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "django", version = "6.0.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "dnspython" },
+    { name = "google-auth" },
     { name = "requests" },
 ]
 
@@ -32,7 +33,6 @@ dependencies = [
 auth = [
     { name = "djangorestframework" },
     { name = "djangorestframework-simplejwt" },
-    { name = "google-auth" },
 ]
 dev = [
     { name = "pytest" },
@@ -51,7 +51,7 @@ requires-dist = [
     { name = "djangorestframework", marker = "extra == 'auth'", specifier = ">=3.14" },
     { name = "djangorestframework-simplejwt", marker = "extra == 'auth'", specifier = ">=5.0" },
     { name = "dnspython", specifier = ">=2.0" },
-    { name = "google-auth", marker = "extra == 'auth'", specifier = ">=2.0" },
+    { name = "google-auth", specifier = ">=2.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0" },
     { name = "pytest-django", marker = "extra == 'dev'", specifier = ">=4.5" },
     { name = "requests", specifier = ">=2.28" },
