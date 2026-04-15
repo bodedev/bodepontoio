@@ -1,7 +1,6 @@
 import json
 
 import pytest
-from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory
 from rest_framework_simplejwt.tokens import RefreshToken

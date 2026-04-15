@@ -1,6 +1,5 @@
 import pytest
-from rest_framework import exceptions, status
-from rest_framework.response import Response
+from rest_framework import exceptions
 
 from bodepontoio.exceptions import _flatten_errors, _get_error_type, exception_handler
 

@@ -1,7 +1,6 @@
 import pytest
 
 from bodepontoio.models import (
-    ConsultaCEP,
     LoginRecord,
     OptimizedImageWithTinyPNG,
     Pais,
@@ -31,7 +30,7 @@ class TestPais:
 
     def test_unique_nome(self):
         Pais.objects.create(nome="Brasil", capital="Brasília", codigo_3="BRA", codigo_2="BR")
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             Pais.objects.create(nome="Brasil", capital="Outra", codigo_3="BRB", codigo_2="BX")
 
 

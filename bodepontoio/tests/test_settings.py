@@ -26,7 +26,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 USE_TZ = True
 
-MIDDLEWARE = []
+MIDDLEWARE: list[str] = []
 
 TEMPLATES = [
     {

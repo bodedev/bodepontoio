@@ -6,7 +6,6 @@ from django.test import RequestFactory
 
 from bodepontoio.middleware import APICallbackDebugMiddleware, install_debug_middleware
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -18,7 +17,7 @@ _DEBUG_MW = "bodepontoio.middleware.APICallbackDebugMiddleware"
 def make_middleware(get_response=None):
     from django.http import HttpResponse
     if get_response is None:
-        get_response = lambda req: HttpResponse("ok", status=200)
+        def get_response(req): return HttpResponse("ok", status=200)
     return APICallbackDebugMiddleware(get_response)
 
 

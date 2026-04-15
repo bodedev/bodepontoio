@@ -17,11 +17,7 @@ def grana(valor, prefixo=None):
     # Adicionado para evitar que os nossos campos dos modelos sejam prejudicados caso os valores sejam nulos.
     if valor is None or not valor:
         valor = 0
-    if not prefixo:
-        prefixo = ""
-    else:
-        # Separa o prefixo do valor, e.g., R$ 50,00
-        prefixo = prefixo + " "
+    prefixo = "" if not prefixo else prefixo + " "
     valor_str = str(valor)
     parte_decimal = "00"
     # Verifica se é um número com parte decimal
@@ -31,6 +27,6 @@ def grana(valor, prefixo=None):
     # Pega cada parte inteira do número e vai formando os milhares, e.g., 160.450.001
     inteiras_e_milhares = '.'.join([parte_inteira[::-1] for parte_inteira in findall(r'\d{3}|\d{2}|\d', valor_str[::-1])][::-1])
     sinal = "-" if float(valor) < 0 else ""  # Número positivo ou negativo
-    padding_zeros = "{:0<2}".format(parte_decimal)  # Se necessário, temos o padding de zeros para a parte decimal, e.g., 45,5 -> 45,50
-    inteira_e_decimal = "%s%s%s,%s" % (prefixo, sinal, inteiras_e_milhares, padding_zeros)
+    padding_zeros = f"{parte_decimal:0<2}"  # Se necessário, temos o padding de zeros para a parte decimal, e.g., 45,5 -> 45,50
+    inteira_e_decimal = f"{prefixo}{sinal}{inteiras_e_milhares},{padding_zeros}"
     return inteira_e_decimal

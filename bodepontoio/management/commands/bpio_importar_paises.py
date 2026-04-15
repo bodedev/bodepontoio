@@ -10,14 +10,14 @@ class Command(BaseCommand):
     help = 'Importa a lista de países.'
 
     def handle(self, *args, **options):
-        handler = open('bodepontoio/assets/paises.csv')
-        csv_reader = csv.DictReader(handler)
-        for row in csv_reader:
-            pais, created = Pais.objects.get_or_create(
-                nome=row['País'],
-                capital=row['Capital'],
-                codigo_3=row['3 letras'],
-                codigo_2=row['2 letras'],
-            )
-            self.stdout.write(f'{pais.codigo_2}: {created}')
+        with open('bodepontoio/assets/paises.csv') as handler:
+            csv_reader = csv.DictReader(handler)
+            for row in csv_reader:
+                pais, created = Pais.objects.get_or_create(
+                    nome=row['País'],
+                    capital=row['Capital'],
+                    codigo_3=row['3 letras'],
+                    codigo_2=row['2 letras'],
+                )
+                self.stdout.write(f'{pais.codigo_2}: {created}')
         self.stdout.write(self.style.SUCCESS('Fim de processo!'))

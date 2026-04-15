@@ -33,7 +33,7 @@ class LoginSerializer(serializers.Serializer):
             try:
                 user_obj = User.objects.get(username=login)
             except User.DoesNotExist:
-                raise serializers.ValidationError("Credenciais inválidas.")
+                raise serializers.ValidationError("Credenciais inválidas.") from None
 
         user = authenticate(
             request=self.context.get("request"),
@@ -61,7 +61,7 @@ class TokenRefreshSerializer(serializers.Serializer):
         try:
             token = RefreshToken(attrs["refresh"])
         except TokenError:
-            raise serializers.ValidationError("Token inválido ou expirado.")
+            raise serializers.ValidationError("Token inválido ou expirado.") from None
         attrs["token"] = token
         return attrs
 
@@ -134,7 +134,7 @@ class EmailConfirmSerializer(serializers.Serializer):
         except (User.DoesNotExist, ValueError, TypeError, OverflowError, Exception):
             raise serializers.ValidationError(
                 "Link de confirmação inválido ou expirado."
-            )
+            ) from None
         if not check_confirmation_token(user, attrs["token"]):
             raise serializers.ValidationError(
                 "Link de confirmação inválido ou expirado."
@@ -166,7 +166,7 @@ class GoogleLoginSerializer(serializers.Serializer):
             )
 
         except ValueError:
-            raise AuthenticationFailed("Token de ID do Google inválido.")
+            raise AuthenticationFailed("Token de ID do Google inválido.") from None
 
         email = id_info["email"]
         first_name = id_info.get("given_name", "")
@@ -208,7 +208,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
             pk = decode_uid(attrs["uid"])
             user = User.objects.get(pk=pk)
         except (User.DoesNotExist, ValueError, TypeError, OverflowError, Exception):
-            raise serializers.ValidationError("UID inválido.")
+            raise serializers.ValidationError("UID inválido.") from None
         if not check_reset_token(user, attrs["token"]):
             raise serializers.ValidationError("Token inválido ou expirado.")
         attrs["user"] = user
