@@ -1,9 +1,8 @@
 from unittest.mock import MagicMock
 
 import pytest
-from django.contrib.auth.signals import user_logged_in
-
 from django.contrib.auth import get_user_model
+from django.contrib.auth.signals import user_logged_in
 
 from bodepontoio.models import LoginRecord
 
