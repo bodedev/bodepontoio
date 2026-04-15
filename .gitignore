@@ -42,6 +42,9 @@ Thumbs.db
 htmlcov/
 .coverage
 .coverage.*
+coverage.xml
+pytest.xml
+pytest-coverage.txt
 .pytest_cache/
 .tox/
 

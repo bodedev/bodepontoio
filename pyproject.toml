@@ -48,7 +48,7 @@ local_scheme = "no-local-version"
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "bodepontoio.tests.test_settings"
-addopts = "--import-mode=importlib --cov=bodepontoio --cov-report=term-missing"
+addopts = "--import-mode=importlib --cov=bodepontoio --cov-report=term-missing --cov-report=xml"
 
 [tool.ruff]
 target-version = "py312"
