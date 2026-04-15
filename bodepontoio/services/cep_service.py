@@ -3,7 +3,6 @@
 import logging
 import re
 from dataclasses import dataclass
-from typing import Optional
 
 import requests
 from django.utils.text import slugify
@@ -72,14 +71,14 @@ class CEPService:
         """Formata o CEP no padrão XXXXX-XXX."""
         return f"{cep[:5]}-{cep[5:]}"
 
-    def _consultar_banco(self, cep: str) -> Optional[ConsultaCEP]:
+    def _consultar_banco(self, cep: str) -> ConsultaCEP | None:
         """Consulta o CEP no banco de dados local."""
         try:
             return ConsultaCEP.objects.get(cep=cep)
         except ConsultaCEP.DoesNotExist:
             return None
 
-    def _consultar_viacep(self, cep: str) -> Optional[dict]:
+    def _consultar_viacep(self, cep: str) -> dict | None:
         """Consulta o CEP no ViaCEP."""
         url = self.VIACEP_URL.format(cep=cep)
         try:
@@ -106,7 +105,7 @@ class CEPService:
             logger.warning("Erro ao consultar ViaCEP para %s: %s", cep, e)
             return None
 
-    def _consultar_awesomeapi(self, cep: str) -> Optional[dict]:
+    def _consultar_awesomeapi(self, cep: str) -> dict | None:
         """Consulta o CEP no AwesomeAPI."""
         url = self.AWESOMEAPI_URL.format(cep=cep)
         try:

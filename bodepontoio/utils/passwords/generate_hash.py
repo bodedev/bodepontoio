@@ -1,12 +1,11 @@
 import hashlib
 import hmac
 import os
-from typing import Tuple
 
 
 def _pbkdf2_generate(
     password: str, iterations: int = 200_000, salt_bytes: int = 16, dklen: int = 32
-) -> Tuple[bytes, bytes]:
+) -> tuple[bytes, bytes]:
     salt = os.urandom(salt_bytes)
     dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations, dklen=dklen)
     return salt, dk

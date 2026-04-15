@@ -27,6 +27,10 @@ dev = [
     "pytest>=7.0",
     "pytest-django>=4.5",
     "pytest-cov>=4.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "django-stubs>=5.0",
+    "types-requests>=2.31",
 ]
 
 [tool.setuptools.packages.find]
@@ -44,4 +48,27 @@ local_scheme = "no-local-version"
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "bodepontoio.tests.test_settings"
-addopts = "--import-mode=importlib"
+addopts = "--import-mode=importlib --cov=bodepontoio --cov-report=term-missing"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+plugins = ["mypy_django_plugin.main"]
+ignore_missing_imports = true
+warn_unused_configs = true
+warn_redundant_casts = true
+exclude = ["bodepontoio/tests"]
+
+[[tool.mypy.overrides]]
+module = "bodepontoio.admin"
+disable_error_code = ["attr-defined"]
+
+[tool.django-stubs]
+django_settings_module = "bodepontoio.tests.test_settings"

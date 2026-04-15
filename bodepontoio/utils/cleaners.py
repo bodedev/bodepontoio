@@ -5,7 +5,7 @@ from django.utils.text import slugify
 
 def file_name_cleaner(filename):
     nome_do_arquivo, extensao_do_arquivo = splitext(filename)
-    return '%s%s' % (slugify(nome_do_arquivo), extensao_do_arquivo)
+    return f'{slugify(nome_do_arquivo)}{extensao_do_arquivo}'
 
 
 def file_extension(filename):
@@ -26,8 +26,4 @@ def extract_name_and_surname(text: str):
 
 def get_client_ip(request):
     x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
-    else:
-        ip = request.META.get('REMOTE_ADDR')
-    return ip
+    return x_forwarded_for.split(',')[0] if x_forwarded_for else request.META.get('REMOTE_ADDR')

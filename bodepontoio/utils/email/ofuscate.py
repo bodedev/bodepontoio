@@ -24,15 +24,9 @@ def obfuscate_email(email: str, local_keep: int = 2, domain_keep: int = 1, mask_
         name, rest = domain, ''
 
     # cria máscara para local
-    if len(local) <= local_keep:
-        masked_local = local
-    else:
-        masked_local = local[:local_keep] + mask_char * (len(local) - local_keep)
+    masked_local = local if len(local) <= local_keep else local[:local_keep] + mask_char * (len(local) - local_keep)
 
     # cria máscara para nome do domínio
-    if len(name) <= domain_keep:
-        masked_name = name
-    else:
-        masked_name = name[:domain_keep] + mask_char * (len(name) - domain_keep)
+    masked_name = name if len(name) <= domain_keep else name[:domain_keep] + mask_char * (len(name) - domain_keep)
 
     return f"{masked_local}@{masked_name}{rest}"

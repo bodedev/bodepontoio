@@ -79,15 +79,15 @@ class CEPServiceCacheTest(TestCase):
 
     def test_consulta_retorna_do_cache(self):
         """Consulta deve retornar dados do cache sem chamar APIs."""
-        with patch.object(self.service, "_consultar_viacep") as mock_viacep:
-            with patch.object(self.service, "_consultar_awesomeapi") as mock_awesome:
-                resultado = self.service.consultar("01001000")
+        with patch.object(self.service, "_consultar_viacep") as mock_viacep, \
+             patch.object(self.service, "_consultar_awesomeapi") as mock_awesome:
+            resultado = self.service.consultar("01001000")
 
-                mock_viacep.assert_not_called()
-                mock_awesome.assert_not_called()
-                self.assertEqual(resultado.cep, "01001-000")
-                self.assertEqual(resultado.localidade, "São Paulo")
-                self.assertEqual(resultado.fonte, "viacep")
+            mock_viacep.assert_not_called()
+            mock_awesome.assert_not_called()
+            self.assertEqual(resultado.cep, "01001-000")
+            self.assertEqual(resultado.localidade, "São Paulo")
+            self.assertEqual(resultado.fonte, "viacep")
 
     def test_consulta_cache_com_cep_formatado(self):
         """Consulta com CEP formatado deve encontrar no cache."""

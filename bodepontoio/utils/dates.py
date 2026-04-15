@@ -15,4 +15,4 @@ def month_to_string(month: int) -> str:
         11: "Novembro",
         12: "Dezembro",
     }
-    return months.get(month)
+    return months[month]

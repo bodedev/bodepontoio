@@ -26,6 +26,6 @@ class ValidatingEmailField(EmailField):
                 dns.resolver.resolve(domain, 'MX')
             except dns.exception.DNSException as e:
                 logger.debug('Domain %s does not exist.', e)
-                raise ValidationError("Este e-mail não é válido!")
+                raise ValidationError("Este e-mail não é válido!") from e
 
         return email

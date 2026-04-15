@@ -3,7 +3,6 @@ import pytest
 from bodepontoio.models import BaseModel, LogicDeletable
 from bodepontoio.tests.testapp.models import Article, Post
 
-
 # ---------------------------------------------------------------------------
 # BaseModel
 # ---------------------------------------------------------------------------

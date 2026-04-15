@@ -141,7 +141,7 @@ def workday(start_date, days, holidays=HOLIDAYS):
                 start_date -= timedelta(days=1)
     full_weeks, extra_days = divmod(days, 7 - len(weekends))
     new_date = start_date + timedelta(weeks=full_weeks)
-    for i in range(extra_days):
+    for _i in range(extra_days):
         new_date += timedelta(days=1)
         while new_date.weekday() in weekends:
             new_date += timedelta(days=1)
