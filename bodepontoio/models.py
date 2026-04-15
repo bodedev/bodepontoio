@@ -66,21 +66,22 @@ class LogicDeletable(BaseModel):
     objects = SemExcluidosManager()
     com_excluidos = ComExcluidosManager()
 
-    def delete(self, using=None):
+    def delete(self, using=None, **kwargs):
         self.excluido = True
         self.excluido_em = timezone.now()
-        self.save()
+        self.save(using=using)
 
     def logic_delete(self, user, using=None):
         self.excluido_por = user
-        self.save()
-        self.delete(using)
+        self.excluido = True
+        self.excluido_em = timezone.now()
+        self.save(using=using)
 
-    def reativar(self):
+    def reativar(self, using=None):
         self.excluido = False
         self.excluido_por = None
         self.excluido_em = None
-        self.save()
+        self.save(using=using)
 
     class Meta:
         abstract = True
