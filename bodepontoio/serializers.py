@@ -198,6 +198,17 @@ class GoogleLoginSerializer(serializers.Serializer):
         return _get_tokens(instance["user"])
 
 
+class OTPEmailConfirmSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    code = serializers.CharField(max_length=8)
+
+
+class OTPPasswordResetConfirmSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    code = serializers.CharField(max_length=8)
+    new_password = serializers.CharField(write_only=True, min_length=8)
+
+
 class PasswordResetConfirmSerializer(serializers.Serializer):
     uid = serializers.CharField()
     token = serializers.CharField()

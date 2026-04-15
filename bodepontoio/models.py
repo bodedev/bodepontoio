@@ -113,6 +113,37 @@ class UserAuth(BaseModel):
         return str(self.user)
 
 
+class OTPCode(BaseModel):
+    class Purpose(models.TextChoices):
+        EMAIL_CONFIRM = "email_confirm", "Confirmação de e-mail"
+        PASSWORD_RESET = "password_reset", "Redefinição de senha"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="otp_codes",
+        verbose_name="usuário",
+    )
+    code = models.CharField("código", max_length=8, db_index=True)
+    purpose = models.CharField(
+        "finalidade", max_length=20, choices=Purpose.choices
+    )
+    expires_at = models.DateTimeField("expira em")
+    is_used = models.BooleanField("utilizado", default=False)
+    attempts = models.PositiveIntegerField("tentativas", default=0)
+
+    class Meta:
+        ordering = ("-created",)
+        verbose_name = "código OTP"
+        verbose_name_plural = "códigos OTP"
+        indexes = [
+            models.Index(fields=["user", "purpose", "is_used"]),
+        ]
+
+    def __str__(self):
+        return f"OTP {self.code} ({self.purpose}) — {self.user}"
+
+
 class ConsultaCEP(BaseModel):
     """Modelo para armazenar consultas de CEP em cache."""
 

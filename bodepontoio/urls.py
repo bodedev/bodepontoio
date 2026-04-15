@@ -5,6 +5,8 @@ from .views import (
     GoogleLoginView,
     LoginView,
     LogoutView,
+    OTPEmailConfirmView,
+    OTPPasswordResetConfirmView,
     PasswordChangeView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
@@ -34,8 +36,18 @@ urlpatterns = [
         name="email-confirm-resend",
     ),
     path(
+        "email/confirm/otp/",
+        OTPEmailConfirmView.as_view(),
+        name="email-confirm-otp",
+    ),
+    path(
         "email/confirm/<str:uid>/<str:token>/",
         EmailConfirmView.as_view(),
         name="email-confirm",
+    ),
+    path(
+        "password/reset/confirm/otp/",
+        OTPPasswordResetConfirmView.as_view(),
+        name="password-reset-confirm-otp",
     ),
 ]
