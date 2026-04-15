@@ -25,9 +25,12 @@ pip install git+https://github.com/bodedev/bodepontoio.git@matheus
 Optional extras:
 
 ```bash
+pip install "django-bodepontoio[auth]"     # JWT auth endpoints (DRF + simplejwt)
 pip install "django-bodepontoio[tinify]"   # TinyPNG image compression
 pip install "django-bodepontoio[sentry]"   # Sentry metrics helpers
 ```
+
+> **Note:** The `auth` extra is required if you use any of the authentication views, serializers, renderers or pagination classes.
 
 ## Setup
 
