@@ -1,5 +1,6 @@
-import pytest
 from datetime import timedelta
+
+import pytest
 from django.core import mail
 from django.test import override_settings
 from django.utils import timezone
@@ -7,7 +8,6 @@ from django.utils import timezone
 from bodepontoio.models import OTPCode
 from bodepontoio.otp import generate_otp
 from bodepontoio.tokens import make_confirmation_token, make_uid
-
 
 OTP_STRATEGY = {"EMAIL_CONFIRM_STRATEGY": "otp", "OTP_LENGTH": 6, "OTP_EXPIRY_SECONDS": 900, "OTP_MAX_ATTEMPTS": 5}
 

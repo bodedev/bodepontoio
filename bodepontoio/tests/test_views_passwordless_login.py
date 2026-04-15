@@ -1,12 +1,12 @@
-import pytest
 from datetime import timedelta
+
+import pytest
 from django.core import mail
 from django.test import override_settings
 from django.utils import timezone
 
 from bodepontoio.models import OTPCode
 from bodepontoio.otp import generate_otp
-
 
 OTP_STRATEGY = {
     "LOGIN_STRATEGY": "otp",

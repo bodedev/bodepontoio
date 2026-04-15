@@ -1,10 +1,10 @@
 from django.contrib.auth import get_user_model
 from rest_framework import permissions, status
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.exceptions import AuthenticationFailed
 
 from .conf import bodepontoio_settings
 from .emails import send_email_confirmation_email, send_login_otp_email, send_password_reset_email
@@ -43,7 +43,7 @@ class PasswordlessLoginConfirmView(APIView):
         try:
             user = User.objects.get(email=serializer.validated_data["email"])
         except User.DoesNotExist:
-            raise AuthenticationFailed("Código inválido ou expirado.")
+            raise AuthenticationFailed("Código inválido ou expirado.") from None
 
         if not user.is_active:
             raise AuthenticationFailed("Conta de usuário desativada.")
@@ -199,7 +199,7 @@ class OTPEmailConfirmView(APIView):
         try:
             user = User.objects.get(email=serializer.validated_data["email"])
         except User.DoesNotExist:
-            raise AuthenticationFailed("Código inválido ou expirado.")
+            raise AuthenticationFailed("Código inválido ou expirado.") from None
 
         success, error = verify_otp(user, serializer.validated_data["code"], OTPCode.Purpose.EMAIL_CONFIRM)
         if not success:
@@ -223,7 +223,7 @@ class OTPPasswordResetConfirmView(APIView):
         try:
             user = User.objects.get(email=serializer.validated_data["email"])
         except User.DoesNotExist:
-            raise AuthenticationFailed("Código inválido ou expirado.")
+            raise AuthenticationFailed("Código inválido ou expirado.") from None
 
         success, error = verify_otp(user, serializer.validated_data["code"], OTPCode.Purpose.PASSWORD_RESET)
         if not success:

@@ -1,11 +1,11 @@
-import pytest
 from datetime import timedelta
+
+import pytest
 from django.test import override_settings
 from django.utils import timezone
 
 from bodepontoio.models import OTPCode
 from bodepontoio.otp import generate_otp, verify_otp
-
 
 OTP_SETTINGS = {
     "OTP_LENGTH": 6,

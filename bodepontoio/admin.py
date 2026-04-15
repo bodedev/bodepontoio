@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from bodepontoio.models import ConsultaCEP, LoginRecord, OTPCode, OptimizedImageWithTinyPNG, Pais, UserAuth
+from bodepontoio.models import ConsultaCEP, LoginRecord, OptimizedImageWithTinyPNG, OTPCode, Pais, UserAuth
 
 FORMATO_DATA_HORA_PADRAO_ADMIN = '%d/%m/%Y %H:%M:%S'
 FORMATO_DATA_SIMPLIFICADO = "%d/%m/%Y"
