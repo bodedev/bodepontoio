@@ -5,7 +5,6 @@ from bodepontoio.models import (
     LoginRecord,
     OptimizedImageWithTinyPNG,
     Pais,
-    User,
 )
 
 
