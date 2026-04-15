@@ -1,5 +1,4 @@
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.contrib.auth.signals import user_logged_in
 from django.db import models
 from django.utils import timezone
@@ -33,7 +32,7 @@ class Pais(BaseModel):
 
 
 class LoginRecord(BaseModel):
-    user = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
     ip = models.GenericIPAddressField(null=True, blank=True, editable=False)
 
     def __str__(self):
@@ -55,7 +54,7 @@ class LogicDeletable(BaseModel):
 
     excluido = models.BooleanField(default=False, db_index=True)
     excluido_por = models.ForeignKey(
-        User,
+        settings.AUTH_USER_MODEL,
         related_name='%(class)s_excluido_por',
         null=True,
         blank=True,
