@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Toolbox da Bode.io para projetos em Django"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 dependencies = [
     "django>=4.2",
     "dnspython>=2.0",
