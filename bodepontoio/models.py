@@ -1,11 +1,9 @@
 from django.conf import settings
-from django.contrib.auth.signals import user_logged_in
 from django.db import models
 from django.utils import timezone
 from django.utils.text import slugify
 
 from bodepontoio.models_managers import ComExcluidosManager, SemExcluidosManager
-from bodepontoio.utils.cleaners import get_client_ip
 
 
 class BaseModel(models.Model):
@@ -19,29 +17,31 @@ class BaseModel(models.Model):
 class Pais(BaseModel):
     nome = models.CharField(max_length=75, unique=True)
     capital = models.CharField(max_length=75, db_index=True)
-    codigo_3 = models.CharField('Código 3 Dígitos', max_length=3, unique=True)
-    codigo_2 = models.CharField('Código 2 Dígitos', max_length=2, unique=True)
+    codigo_3 = models.CharField("Código 3 Dígitos", max_length=3, unique=True)
+    codigo_2 = models.CharField("Código 2 Dígitos", max_length=2, unique=True)
 
     def __str__(self):
         return self.nome
 
     class Meta:
-        ordering = ('nome',)
-        verbose_name = 'País'
-        verbose_name_plural = 'Países'
+        ordering = ("nome",)
+        verbose_name = "País"
+        verbose_name_plural = "Países"
 
 
 class LoginRecord(BaseModel):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL
+    )
     ip = models.GenericIPAddressField(null=True, blank=True, editable=False)
 
     def __str__(self):
         return str(self.user)
 
     class Meta:
-        ordering = ('-created',)
-        verbose_name = 'Login'
-        verbose_name_plural = 'Logins'
+        ordering = ("-created",)
+        verbose_name = "Login"
+        verbose_name_plural = "Logins"
 
 
 class LogicDeletable(BaseModel):
@@ -55,7 +55,7 @@ class LogicDeletable(BaseModel):
     excluido = models.BooleanField(default=False, db_index=True)
     excluido_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        related_name='%(class)s_excluido_por',
+        related_name="%(class)s_excluido_por",
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
@@ -91,37 +91,26 @@ class OptimizedImageWithTinyPNG(LogicDeletable):
 
     class Meta:
         ordering = [
-            '-id',
+            "-id",
         ]
-        verbose_name = 'Optimized Image With Tiny PNG'
-        verbose_name_plural = 'Optimized Images With Tiny PNG'
+        verbose_name = "Optimized Image With Tiny PNG"
+        verbose_name_plural = "Optimized Images With Tiny PNG"
 
 
 class UserAuth(BaseModel):
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='auth',
+        related_name="auth",
     )
-    is_email_verified = models.BooleanField('e-mail verificado', default=False)
+    is_email_verified = models.BooleanField("e-mail verificado", default=False)
 
     class Meta:
-        verbose_name = 'dados de autenticação do usuário'
-        verbose_name_plural = 'dados de autenticação do usuário'
+        verbose_name = "dados de autenticação do usuário"
+        verbose_name_plural = "dados de autenticação do usuário"
 
     def __str__(self):
         return str(self.user)
-
-
-def save_login_record(sender, user, request, **kwargs):
-    client_ip = get_client_ip(request)
-    LoginRecord.objects.create(
-        user=user,
-        ip=client_ip,
-    )
-
-
-user_logged_in.connect(save_login_record)
 
 
 class ConsultaCEP(BaseModel):
