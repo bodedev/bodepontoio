@@ -198,6 +198,15 @@ class GoogleLoginSerializer(serializers.Serializer):
         return _get_tokens(instance["user"])
 
 
+class PasswordlessLoginRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordlessLoginConfirmSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    code = serializers.CharField(max_length=8)
+
+
 class OTPEmailConfirmSerializer(serializers.Serializer):
     email = serializers.EmailField()
     code = serializers.CharField(max_length=8)

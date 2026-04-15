@@ -6,6 +6,8 @@ Toolbox da Bode.io para projetos em Django — JWT authentication, utility model
 
 - JWT authentication via `djangorestframework-simplejwt`
 - DRF endpoints: login, logout, register, password change, password reset request/confirm, e-mail confirmation and Google social login
+- OTP strategy for email confirmation and password reset (configurable — magic link is the default)
+- Passwordless login via email OTP (opt-in)
 - Abstract base models: `BaseModel` (timestamps) and `LogicDeletable` (soft deletion)
 - Built-in models: `UserAuth`, `Pais`, `LoginRecord`, `ConsultaCEP`, `OptimizedImageWithTinyPNG`
 - CEP lookup service with ViaCEP / AwesomeAPI fallback and database caching
@@ -63,6 +65,18 @@ BODEPONTOIO = {
     "FRONTEND_URL": "https://app.example.com",           # default: "http://localhost:3000"
     "PASSWORD_RESET_URL_PATH": "/reset/{uid}/{token}/",  # default: "/reset-password/{uid}/{token}/"
     "GOOGLE_CLIENT_ID": "your-client-id.apps.googleusercontent.com",  # required for Google login
+
+    # OTP strategies (default: "magic_link" — backward compatible)
+    "EMAIL_CONFIRM_STRATEGY": "otp",   # "magic_link" or "otp"
+    "PASSWORD_RESET_STRATEGY": "otp",  # "magic_link" or "otp"
+
+    # OTP options
+    "OTP_LENGTH": 6,           # digits in the generated code
+    "OTP_EXPIRY_SECONDS": 900, # 15 minutes
+    "OTP_MAX_ATTEMPTS": 5,     # wrong attempts before the code is burned
+
+    # Login strategy (default: "password")
+    "LOGIN_STRATEGY": "otp",  # "password" or "otp"
 }
 ```
 
@@ -79,16 +93,22 @@ python manage.py migrate
 
 | Method | URL | Permission | Description |
 |--------|-----|------------|-------------|
-| POST | `login/` | Public | Obtain access + refresh tokens |
+| POST | `login/` | Public | Obtain tokens (password) or request OTP code (strategy-dependent) |
+| POST | `login/otp/confirm/` | Public | Exchange OTP code for tokens ¹ |
 | POST | `token/refresh/` | Public | Refresh access token |
 | POST | `logout/` | Authenticated | Blacklist refresh token |
 | POST | `register/` | Public | Create account, sends confirmation email |
 | POST | `password/change/` | Authenticated | Change password |
-| POST | `password/reset/` | Public | Request reset email |
-| POST | `password/reset/confirm/` | Public | Confirm reset with uid + token |
-| GET | `email/confirm/<uid>/<token>/` | Public | Confirm email address |
-| POST | `email/confirm/resend/` | Public | Re-send confirmation email |
+| POST | `password/reset/` | Public | Request reset link or code |
+| POST | `password/reset/confirm/` | Public | Confirm reset with uid + token (magic link) |
+| POST | `password/reset/confirm/otp/` | Public | Confirm reset with email + OTP code ² |
+| GET | `email/confirm/<uid>/<token>/` | Public | Confirm email address (magic link) |
+| POST | `email/confirm/otp/` | Public | Confirm email address with OTP code ² |
+| POST | `email/confirm/resend/` | Public | Re-send confirmation email or code |
 | POST | `social/google/` | Public | Login or register via Google ID token |
+
+¹ Returns 404 unless `LOGIN_STRATEGY = "otp"`. `login/` always exists but its behaviour changes with the strategy.  
+² Returns 404 unless the matching strategy is set to `"otp"`.
 
 ## Login
 
@@ -156,6 +176,90 @@ your_project/
 |---|---|
 | `user` | The `User` instance |
 | `confirm_url` | Full confirmation URL |
+
+## OTP Strategy
+
+Email confirmation and password reset both support two delivery strategies, configured independently:
+
+```python
+BODEPONTOIO = {
+    "EMAIL_CONFIRM_STRATEGY": "otp",   # or "magic_link" (default)
+    "PASSWORD_RESET_STRATEGY": "otp",  # or "magic_link" (default)
+}
+```
+
+### `magic_link` (default)
+
+The user receives an email with a signed URL. They click it or paste it in a browser. No new endpoints required — backward compatible.
+
+### `otp`
+
+The user receives a short numeric code (default: 6 digits, 15 minutes expiry). They submit it via a POST endpoint:
+
+- Email confirmation: `POST email/confirm/otp/` with `{"email": "...", "code": "..."}`
+- Password reset: `POST password/reset/confirm/otp/` with `{"email": "...", "code": "...", "new_password": "..."}`
+
+The magic-link endpoints remain registered but return 404 when the OTP strategy is active, and vice-versa.
+
+### OTP options
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `OTP_LENGTH` | `6` | Number of digits in the generated code |
+| `OTP_EXPIRY_SECONDS` | `900` | Seconds until the code expires (15 minutes) |
+| `OTP_MAX_ATTEMPTS` | `5` | Wrong attempts before the code is burned |
+
+### OTP email templates
+
+| Template | Strategy | Flow |
+|----------|----------|------|
+| `bodepontoio/email_confirmation_email.html` | `magic_link` | Email confirmation |
+| `bodepontoio/email_confirmation_otp.html` | `otp` | Email confirmation |
+| `bodepontoio/password_reset_email.html` | `magic_link` | Password reset |
+| `bodepontoio/password_reset_otp.html` | `otp` | Password reset |
+
+OTP templates receive `{{ otp_code }}` and `{{ expiry_minutes }}` instead of a URL.
+
+---
+
+## Passwordless Login
+
+Users can log in with just their email address — no password required. Enable it in settings:
+
+```python
+BODEPONTOIO = {
+    "LOGIN_STRATEGY": "otp",  # "password" (default) or "otp"
+}
+```
+
+### Flow
+
+`login/` is always the entry point — its behaviour depends on the active strategy:
+
+| Strategy | `POST login/` accepts | Returns |
+|----------|-----------------------|---------|
+| `"password"` (default) | `{"login": "...", "password": "..."}` | `{access, refresh}` tokens |
+| `"otp"` | `{"email": "..."}` | 200 message, sends OTP code by email |
+
+When strategy is `"otp"`, the user then completes login with:
+
+`POST login/otp/confirm/` with `{"email": "...", "code": "..."}` → returns `{access, refresh}`
+
+`login/otp/confirm/` returns 404 when `LOGIN_STRATEGY` is `"password"`.
+
+Anti-enumeration: `login/` in OTP mode always returns 200, even for unknown or inactive addresses.
+
+A successful OTP login automatically sets `is_email_verified = True` if the user's email was not yet confirmed — possession of the inbox is sufficient proof.
+
+### Email template
+
+| Template | Description |
+|----------|-------------|
+| `bodepontoio/login_otp.html` | Login OTP code email |
+
+Context variables: `{{ user }}`, `{{ otp_code }}`, `{{ expiry_minutes }}`, `{{ brand_color }}`.
+
+---
 
 ## Password Reset Email
 

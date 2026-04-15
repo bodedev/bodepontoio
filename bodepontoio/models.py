@@ -117,6 +117,7 @@ class OTPCode(BaseModel):
     class Purpose(models.TextChoices):
         EMAIL_CONFIRM = "email_confirm", "Confirmação de e-mail"
         PASSWORD_RESET = "password_reset", "Redefinição de senha"
+        LOGIN = "login", "Login sem senha"
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

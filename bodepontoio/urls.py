@@ -8,6 +8,7 @@ from .views import (
     OTPEmailConfirmView,
     OTPPasswordResetConfirmView,
     PasswordChangeView,
+    PasswordlessLoginConfirmView,
     PasswordResetConfirmView,
     PasswordResetRequestView,
     RegisterView,
@@ -18,6 +19,7 @@ from .views import (
 app_name = "bodepontoio"
 
 urlpatterns = [
+    path("login/otp/confirm/", PasswordlessLoginConfirmView.as_view(), name="login-otp-confirm"),
     path("login/", LoginView.as_view(), name="login"),
     path("token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
     path("social/google/", GoogleLoginView.as_view(), name="social-google"),

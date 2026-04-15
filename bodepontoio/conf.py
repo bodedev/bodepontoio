@@ -15,6 +15,7 @@ DEFAULTS = {
     "OTP_LENGTH": 6,
     "OTP_EXPIRY_SECONDS": 900,
     "OTP_MAX_ATTEMPTS": 5,
+    "LOGIN_STRATEGY": "password",
 }
 
 

@@ -96,6 +96,28 @@ def _send_email_confirmation_magic_link(user, request):
     )
 
 
+def send_login_otp_email(user):
+    otp = generate_otp(user, OTPCode.Purpose.LOGIN)
+    expiry_minutes = bodepontoio_settings.OTP_EXPIRY_SECONDS // 60
+
+    context = {
+        "user": user,
+        "otp_code": otp.code,
+        "expiry_minutes": expiry_minutes,
+        "brand_color": bodepontoio_settings.EMAIL_BRAND_COLOR,
+    }
+    html_message = render_to_string("bodepontoio/login_otp.html", context)
+
+    send_mail(
+        subject="Seu código de acesso",
+        message=f"Use o código abaixo para acessar sua conta:\n\n{otp.code}\n\nEste código expira em {expiry_minutes} minutos.",
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        html_message=html_message,
+        fail_silently=False,
+    )
+
+
 def _send_email_confirmation_otp(user):
     otp = generate_otp(user, OTPCode.Purpose.EMAIL_CONFIRM)
     expiry_minutes = bodepontoio_settings.OTP_EXPIRY_SECONDS // 60
