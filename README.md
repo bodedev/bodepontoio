@@ -19,7 +19,7 @@ Toolbox da Bode.io para projetos em Django — JWT authentication, utility model
 ## Installation
 
 ```bash
-pip install git+https://github.com/bodedev/bodepontoio.git@matheus
+pip install git+https://github.com/bodedev/bodepontoio.git@main
 ```
 
 Optional extras:
