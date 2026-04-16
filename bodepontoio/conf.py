@@ -16,6 +16,7 @@ DEFAULTS = {
     "OTP_EXPIRY_SECONDS": 900,
     "OTP_MAX_ATTEMPTS": 5,
     "LOGIN_STRATEGY": "password",
+    "USER_SERIALIZER": "bodepontoio.serializers.DefaultUserSerializer",
 }
 
 
