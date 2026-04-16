@@ -90,10 +90,15 @@ class TokenRefreshSerializer(serializers.Serializer):
 
     def to_representation(self, instance):
         token = instance["token"]
-        return {
+        data = {
             "refresh": str(token),
             "access": str(token.access_token),
         }
+        serializer_class = get_user_serializer_class()
+        if serializer_class is not None:
+            user = User.objects.get(pk=token["user_id"])
+            data["user"] = serializer_class(user).data
+        return data
 
 
 class LogoutSerializer(serializers.Serializer):

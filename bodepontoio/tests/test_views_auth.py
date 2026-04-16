@@ -89,6 +89,31 @@ class TestTokenRefreshView:
         response = api_client.post("/auth/token/refresh/", {})
         assert response.status_code == 400
 
+    def test_refresh_response_includes_user_data(self, api_client, create_user):
+        user = create_user(
+            email="refresh@example.com",
+            first_name="Alan",
+            last_name="Turing",
+        )
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(user)
+        response = api_client.post("/auth/token/refresh/", {"refresh": str(refresh)})
+        assert response.status_code == 200
+        assert "user" in response.data
+        assert response.data["user"]["id"] == user.pk
+        assert response.data["user"]["email"] == "refresh@example.com"
+        assert response.data["user"]["first_name"] == "Alan"
+        assert response.data["user"]["last_name"] == "Turing"
+
+    @override_settings(BODEPONTOIO={"USER_SERIALIZER": None})
+    def test_refresh_response_excludes_user_data_when_disabled(self, api_client, create_user):
+        user = create_user()
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(user)
+        response = api_client.post("/auth/token/refresh/", {"refresh": str(refresh)})
+        assert response.status_code == 200
+        assert "user" not in response.data
+
 
 @pytest.mark.django_db
 class TestLogoutView:
