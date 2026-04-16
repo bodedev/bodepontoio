@@ -96,8 +96,12 @@ class TokenRefreshSerializer(serializers.Serializer):
         }
         serializer_class = get_user_serializer_class()
         if serializer_class is not None:
-            user = User.objects.get(pk=token["user_id"])
-            data["user"] = serializer_class(user).data
+            try:
+                user = User.objects.get(pk=token["user_id"])
+            except User.DoesNotExist:
+                pass
+            else:
+                data["user"] = serializer_class(user).data
         return data
 
 

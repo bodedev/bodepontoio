@@ -95,7 +95,6 @@ class TestTokenRefreshView:
             first_name="Alan",
             last_name="Turing",
         )
-        from rest_framework_simplejwt.tokens import RefreshToken
         refresh = RefreshToken.for_user(user)
         response = api_client.post("/auth/token/refresh/", {"refresh": str(refresh)})
         assert response.status_code == 200
@@ -108,7 +107,6 @@ class TestTokenRefreshView:
     @override_settings(BODEPONTOIO={"USER_SERIALIZER": None})
     def test_refresh_response_excludes_user_data_when_disabled(self, api_client, create_user):
         user = create_user()
-        from rest_framework_simplejwt.tokens import RefreshToken
         refresh = RefreshToken.for_user(user)
         response = api_client.post("/auth/token/refresh/", {"refresh": str(refresh)})
         assert response.status_code == 200
