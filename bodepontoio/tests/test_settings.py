@@ -43,6 +43,10 @@ BODEPONTOIO = {
     "GOOGLE_CLIENT_ID": "test-client-id.apps.googleusercontent.com",
 }
 
+AUTHENTICATION_BACKENDS = [
+    "bodepontoio.backends.EmailOrUsernameBackend",
+]
+
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
 DEFAULT_FROM_EMAIL = "test@example.com"
 

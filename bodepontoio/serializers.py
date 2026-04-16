@@ -1,4 +1,4 @@
-from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth import get_user_model
 from django.core.exceptions import ImproperlyConfigured
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
@@ -8,50 +8,15 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .conf import bodepontoio_settings
+from .services.tokens import generate_tokens
 from .tokens import check_confirmation_token, check_reset_token, decode_uid
 
 User = get_user_model()
 
 
-def _get_tokens(user):
-    refresh = RefreshToken.for_user(user)
-    return {
-        "refresh": str(refresh),
-        "access": str(refresh.access_token),
-    }
-
-
 class LoginSerializer(serializers.Serializer):
     login = serializers.CharField()
     password = serializers.CharField(write_only=True)
-
-    def validate(self, attrs):
-        login = attrs["login"]
-        try:
-            user_obj = User.objects.get(email=login)
-        except User.DoesNotExist:
-            try:
-                user_obj = User.objects.get(username=login)
-            except User.DoesNotExist:
-                raise serializers.ValidationError("Credenciais inválidas.") from None
-
-        user = authenticate(
-            request=self.context.get("request"),
-            username=user_obj.username,
-            password=attrs["password"],
-        )
-
-        if not user:
-            raise serializers.ValidationError("Credenciais inválidas.")
-        if not user.is_active:
-            raise serializers.ValidationError("Conta de usuário desativada.")
-        if not user.auth.is_email_verified:
-            raise serializers.ValidationError("Endereço de e-mail não confirmado.")
-        attrs["user"] = user
-        return attrs
-
-    def to_representation(self, instance):
-        return _get_tokens(instance["user"])
 
 
 class TokenRefreshSerializer(serializers.Serializer):
@@ -61,7 +26,7 @@ class TokenRefreshSerializer(serializers.Serializer):
         try:
             token = RefreshToken(attrs["refresh"])
         except TokenError:
-            raise serializers.ValidationError("Token inválido ou expirado.") from None
+            raise AuthenticationFailed("Token inválido ou expirado.") from None
         attrs["token"] = token
         return attrs
 
@@ -119,7 +84,7 @@ class PasswordChangeSerializer(serializers.Serializer):
     def validate_old_password(self, value):
         user = self.context["request"].user
         if not user.check_password(value):
-            raise serializers.ValidationError("Senha antiga incorreta.")
+            raise AuthenticationFailed("Senha antiga incorreta.")
         return value
 
 
@@ -132,13 +97,9 @@ class EmailConfirmSerializer(serializers.Serializer):
             pk = decode_uid(attrs["uid"])
             user = User.objects.get(pk=pk)
         except (User.DoesNotExist, ValueError, TypeError, OverflowError, Exception):
-            raise serializers.ValidationError(
-                "Link de confirmação inválido ou expirado."
-            ) from None
+            raise AuthenticationFailed("Link de confirmação inválido ou expirado.") from None
         if not check_confirmation_token(user, attrs["token"]):
-            raise serializers.ValidationError(
-                "Link de confirmação inválido ou expirado."
-            )
+            raise AuthenticationFailed("Link de confirmação inválido ou expirado.")
         attrs["user"] = user
         return attrs
 
@@ -195,7 +156,7 @@ class GoogleLoginSerializer(serializers.Serializer):
         return attrs
 
     def to_representation(self, instance):
-        return _get_tokens(instance["user"])
+        return generate_tokens(instance["user"])
 
 
 class PasswordlessLoginRequestSerializer(serializers.Serializer):
@@ -228,8 +189,8 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
             pk = decode_uid(attrs["uid"])
             user = User.objects.get(pk=pk)
         except (User.DoesNotExist, ValueError, TypeError, OverflowError, Exception):
-            raise serializers.ValidationError("UID inválido.") from None
+            raise AuthenticationFailed("UID inválido.") from None
         if not check_reset_token(user, attrs["token"]):
-            raise serializers.ValidationError("Token inválido ou expirado.")
+            raise AuthenticationFailed("Token inválido ou expirado.")
         attrs["user"] = user
         return attrs

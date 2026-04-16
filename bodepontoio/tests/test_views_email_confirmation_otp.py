@@ -53,7 +53,7 @@ class TestOTPEmailConfirmation:
             "/auth/email/confirm/otp/",
             {"email": user.email, "code": "000000"},
         )
-        assert response.status_code == 400
+        assert response.status_code == 401
 
     @override_settings(BODEPONTOIO=OTP_STRATEGY)
     def test_confirm_otp_expired(self, api_client, create_user):
@@ -65,7 +65,7 @@ class TestOTPEmailConfirmation:
             "/auth/email/confirm/otp/",
             {"email": user.email, "code": otp.code},
         )
-        assert response.status_code == 400
+        assert response.status_code == 401
 
     @override_settings(BODEPONTOIO=OTP_STRATEGY)
     def test_confirm_otp_unknown_email(self, api_client):
@@ -73,7 +73,7 @@ class TestOTPEmailConfirmation:
             "/auth/email/confirm/otp/",
             {"email": "nobody@example.com", "code": "123456"},
         )
-        assert response.status_code == 400
+        assert response.status_code == 401
 
     @override_settings(BODEPONTOIO=OTP_STRATEGY)
     def test_confirm_otp_max_attempts_burns_code(self, api_client, create_user):
@@ -88,7 +88,7 @@ class TestOTPEmailConfirmation:
             "/auth/email/confirm/otp/",
             {"email": user.email, "code": otp.code},
         )
-        assert response.status_code == 400
+        assert response.status_code == 401
         user.auth.refresh_from_db()
         assert user.auth.is_email_verified is False
 

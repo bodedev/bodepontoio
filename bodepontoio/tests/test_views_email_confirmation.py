@@ -27,7 +27,7 @@ class TestEmailConfirmation:
             "/auth/login/",
             {"login": "unconfirmed@example.com", "password": "testpassword123"},
         )
-        assert response.status_code == 400
+        assert response.status_code == 401
 
     def test_confirmed_user_can_login(self, api_client, create_user):
         create_user(
@@ -55,11 +55,11 @@ class TestEmailConfirmation:
         user = create_user(email="badtoken@example.com")
         uid = make_uid(user)
         response = api_client.get(f"/auth/email/confirm/{uid}/invalidtoken/")
-        assert response.status_code == 400
+        assert response.status_code == 401
 
     def test_confirm_email_invalid_uid(self, api_client):
         response = api_client.get("/auth/email/confirm/notavaliduid/sometoken/")
-        assert response.status_code == 400
+        assert response.status_code == 401
 
     def test_confirm_email_idempotent(self, api_client, create_user):
         user = create_user(email="idempotent@example.com", is_email_verified=True)

@@ -29,7 +29,7 @@ class TestLoginView:
             "/auth/login/",
             {"login": "wrong@example.com", "password": "wrongpass"},
         )
-        assert response.status_code == 400
+        assert response.status_code == 401
 
     def test_login_missing_password(self, api_client):
         response = api_client.post("/auth/login/", {"login": "test@example.com"})
@@ -52,7 +52,7 @@ class TestTokenRefreshView:
 
     def test_refresh_invalid_token(self, api_client):
         response = api_client.post("/auth/token/refresh/", {"refresh": "invalidtoken"})
-        assert response.status_code == 400
+        assert response.status_code == 401
 
     def test_refresh_missing_token(self, api_client):
         response = api_client.post("/auth/token/refresh/", {})

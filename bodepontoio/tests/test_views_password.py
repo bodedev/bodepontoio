@@ -22,7 +22,7 @@ class TestPasswordChangeView:
             "/auth/password/change/",
             {"old_password": "wrongpassword", "new_password": "newpassword456"},
         )
-        assert response.status_code == 400
+        assert response.status_code == 401
 
     def test_change_password_unauthenticated(self, api_client):
         response = api_client.post(
@@ -84,7 +84,7 @@ class TestPasswordResetConfirmView:
             "/auth/password/reset/confirm/",
             {"uid": uid, "token": "invalidtoken", "new_password": "brandnewpassword"},
         )
-        assert response.status_code == 400
+        assert response.status_code == 401
 
     def test_reset_confirm_invalid_uid(self, api_client):
         response = api_client.post(
@@ -95,7 +95,7 @@ class TestPasswordResetConfirmView:
                 "new_password": "brandnewpassword",
             },
         )
-        assert response.status_code == 400
+        assert response.status_code == 401
 
     def test_reset_confirm_weak_password(self, api_client, create_user):
         user = create_user(email="weakreset@example.com")
