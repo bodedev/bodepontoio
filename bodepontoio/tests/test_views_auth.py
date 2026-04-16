@@ -41,6 +41,35 @@ class TestLoginView:
         response = api_client.post("/auth/login/", {"password": "somepassword"})
         assert response.status_code == 400
 
+    def test_login_response_includes_user_data(self, api_client, create_user):
+        user = create_user(
+            email="userdata@example.com",
+            password="testpassword123",
+            is_email_verified=True,
+            first_name="Grace",
+            last_name="Hopper",
+        )
+        response = api_client.post(
+            "/auth/login/",
+            {"login": "userdata@example.com", "password": "testpassword123"},
+        )
+        assert response.status_code == 200
+        assert "user" in response.data
+        assert response.data["user"]["id"] == user.pk
+        assert response.data["user"]["email"] == "userdata@example.com"
+        assert response.data["user"]["first_name"] == "Grace"
+        assert response.data["user"]["last_name"] == "Hopper"
+
+    @override_settings(BODEPONTOIO={"USER_SERIALIZER": None})
+    def test_login_response_excludes_user_data_when_disabled(self, api_client, create_user):
+        create_user(email="nouser@example.com", password="testpassword123", is_email_verified=True)
+        response = api_client.post(
+            "/auth/login/",
+            {"login": "nouser@example.com", "password": "testpassword123"},
+        )
+        assert response.status_code == 200
+        assert "user" not in response.data
+
 
 @pytest.mark.django_db
 class TestTokenRefreshView:

@@ -34,10 +34,14 @@ def get_user_serializer_class():
 
 def _get_tokens(user):
     refresh = RefreshToken.for_user(user)
-    return {
+    data = {
         "refresh": str(refresh),
         "access": str(refresh.access_token),
     }
+    serializer_class = get_user_serializer_class()
+    if serializer_class is not None:
+        data["user"] = serializer_class(user).data
+    return data
 
 
 class LoginSerializer(serializers.Serializer):
