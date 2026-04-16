@@ -145,9 +145,6 @@ class TestRegisterView:
         assert response.status_code == 201
 
 
-import pytest
-
-
 @pytest.mark.django_db
 class TestDefaultUserSerializer:
     def test_returns_expected_fields(self, create_user):
