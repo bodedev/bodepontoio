@@ -1,5 +1,6 @@
 from django.contrib.auth import authenticate, get_user_model
 from django.core.exceptions import ImproperlyConfigured
+from django.utils.module_loading import import_string
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
 from rest_framework import serializers
@@ -13,12 +14,34 @@ from .tokens import check_confirmation_token, check_reset_token, decode_uid
 User = get_user_model()
 
 
+class DefaultUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ("id", "email", "first_name", "last_name")
+
+
+def get_user_serializer_class():
+    dotted_path = bodepontoio_settings.USER_SERIALIZER
+    if dotted_path is None:
+        return None
+    try:
+        return import_string(dotted_path)
+    except ImportError as e:
+        raise ImproperlyConfigured(
+            f"Could not import USER_SERIALIZER '{dotted_path}': {e}"
+        ) from e
+
+
 def _get_tokens(user):
     refresh = RefreshToken.for_user(user)
-    return {
+    data = {
         "refresh": str(refresh),
         "access": str(refresh.access_token),
     }
+    serializer_class = get_user_serializer_class()
+    if serializer_class is not None:
+        data["user"] = serializer_class(user).data
+    return data
 
 
 class LoginSerializer(serializers.Serializer):
@@ -67,10 +90,19 @@ class TokenRefreshSerializer(serializers.Serializer):
 
     def to_representation(self, instance):
         token = instance["token"]
-        return {
+        data = {
             "refresh": str(token),
             "access": str(token.access_token),
         }
+        serializer_class = get_user_serializer_class()
+        if serializer_class is not None:
+            try:
+                user = User.objects.get(pk=token["user_id"])
+            except User.DoesNotExist:
+                pass
+            else:
+                data["user"] = serializer_class(user).data
+        return data
 
 
 class LogoutSerializer(serializers.Serializer):

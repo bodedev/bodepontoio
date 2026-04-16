@@ -1,4 +1,6 @@
 import pytest
+from django.core.exceptions import ImproperlyConfigured
+from django.test import override_settings
 from rest_framework_simplejwt.tokens import RefreshToken
 
 
@@ -39,6 +41,35 @@ class TestLoginView:
         response = api_client.post("/auth/login/", {"password": "somepassword"})
         assert response.status_code == 400
 
+    def test_login_response_includes_user_data(self, api_client, create_user):
+        user = create_user(
+            email="userdata@example.com",
+            password="testpassword123",
+            is_email_verified=True,
+            first_name="Grace",
+            last_name="Hopper",
+        )
+        response = api_client.post(
+            "/auth/login/",
+            {"login": "userdata@example.com", "password": "testpassword123"},
+        )
+        assert response.status_code == 200
+        assert "user" in response.data
+        assert response.data["user"]["id"] == user.pk
+        assert response.data["user"]["email"] == "userdata@example.com"
+        assert response.data["user"]["first_name"] == "Grace"
+        assert response.data["user"]["last_name"] == "Hopper"
+
+    @override_settings(BODEPONTOIO={"USER_SERIALIZER": None})
+    def test_login_response_excludes_user_data_when_disabled(self, api_client, create_user):
+        create_user(email="nouser@example.com", password="testpassword123", is_email_verified=True)
+        response = api_client.post(
+            "/auth/login/",
+            {"login": "nouser@example.com", "password": "testpassword123"},
+        )
+        assert response.status_code == 200
+        assert "user" not in response.data
+
 
 @pytest.mark.django_db
 class TestTokenRefreshView:
@@ -57,6 +88,29 @@ class TestTokenRefreshView:
     def test_refresh_missing_token(self, api_client):
         response = api_client.post("/auth/token/refresh/", {})
         assert response.status_code == 400
+
+    def test_refresh_response_includes_user_data(self, api_client, create_user):
+        user = create_user(
+            email="refresh@example.com",
+            first_name="Alan",
+            last_name="Turing",
+        )
+        refresh = RefreshToken.for_user(user)
+        response = api_client.post("/auth/token/refresh/", {"refresh": str(refresh)})
+        assert response.status_code == 200
+        assert "user" in response.data
+        assert response.data["user"]["id"] == user.pk
+        assert response.data["user"]["email"] == "refresh@example.com"
+        assert response.data["user"]["first_name"] == "Alan"
+        assert response.data["user"]["last_name"] == "Turing"
+
+    @override_settings(BODEPONTOIO={"USER_SERIALIZER": None})
+    def test_refresh_response_excludes_user_data_when_disabled(self, api_client, create_user):
+        user = create_user()
+        refresh = RefreshToken.for_user(user)
+        response = api_client.post("/auth/token/refresh/", {"refresh": str(refresh)})
+        assert response.status_code == 200
+        assert "user" not in response.data
 
 
 @pytest.mark.django_db
@@ -141,3 +195,37 @@ class TestRegisterView:
             {"email": "nouser@example.com", "password": "securepassword123"},
         )
         assert response.status_code == 201
+
+
+@pytest.mark.django_db
+class TestDefaultUserSerializer:
+    def test_returns_expected_fields(self, create_user):
+        user = create_user(
+            email="serial@example.com",
+            first_name="Ada",
+            last_name="Lovelace",
+        )
+        from bodepontoio.serializers import DefaultUserSerializer
+        data = DefaultUserSerializer(user).data
+        assert data["id"] == user.pk
+        assert data["email"] == "serial@example.com"
+        assert data["first_name"] == "Ada"
+        assert data["last_name"] == "Lovelace"
+        assert set(data.keys()) == {"id", "email", "first_name", "last_name"}
+
+
+class TestGetUserSerializerClass:
+    def test_default_resolves_to_default_serializer(self):
+        from bodepontoio.serializers import DefaultUserSerializer, get_user_serializer_class
+        assert get_user_serializer_class() is DefaultUserSerializer
+
+    @override_settings(BODEPONTOIO={"USER_SERIALIZER": None})
+    def test_none_returns_none(self):
+        from bodepontoio.serializers import get_user_serializer_class
+        assert get_user_serializer_class() is None
+
+    @override_settings(BODEPONTOIO={"USER_SERIALIZER": "does.not.exist.Serializer"})
+    def test_bad_path_raises_improperly_configured(self):
+        from bodepontoio.serializers import get_user_serializer_class
+        with pytest.raises(ImproperlyConfigured):
+            get_user_serializer_class()
