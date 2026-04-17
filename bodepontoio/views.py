@@ -7,8 +7,8 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .conf import bodepontoio_settings
-from .mixins import BodepontoioMixin
 from .emails import send_email_confirmation_email, send_login_otp_email, send_password_reset_email
+from .mixins import BodepontoioMixin
 from .models import OTPCode
 from .otp import verify_otp
 from .serializers import (
