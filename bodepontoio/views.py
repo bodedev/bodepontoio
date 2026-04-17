@@ -7,6 +7,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .conf import bodepontoio_settings
+from .mixins import BodepontoioMixin
 from .emails import send_email_confirmation_email, send_login_otp_email, send_password_reset_email
 from .models import OTPCode
 from .otp import verify_otp
@@ -30,7 +31,7 @@ from .serializers import (
 User = get_user_model()
 
 
-class PasswordlessLoginConfirmView(APIView):
+class PasswordlessLoginConfirmView(BodepontoioMixin, APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -60,7 +61,7 @@ class PasswordlessLoginConfirmView(APIView):
         return Response(_get_tokens(user))
 
 
-class LoginView(APIView):
+class LoginView(BodepontoioMixin, APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -80,7 +81,7 @@ class LoginView(APIView):
         return Response(serializer.data)
 
 
-class GoogleLoginView(APIView):
+class GoogleLoginView(BodepontoioMixin, APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -89,7 +90,7 @@ class GoogleLoginView(APIView):
         return Response(serializer.data)
 
 
-class TokenRefreshView(APIView):
+class TokenRefreshView(BodepontoioMixin, APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -98,7 +99,7 @@ class TokenRefreshView(APIView):
         return Response(serializer.data)
 
 
-class LogoutView(APIView):
+class LogoutView(BodepontoioMixin, APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
@@ -117,7 +118,7 @@ class LogoutView(APIView):
         return Response()
 
 
-class RegisterView(APIView):
+class RegisterView(BodepontoioMixin, APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -131,7 +132,7 @@ class RegisterView(APIView):
         )
 
 
-class PasswordChangeView(APIView):
+class PasswordChangeView(BodepontoioMixin, APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
@@ -144,7 +145,7 @@ class PasswordChangeView(APIView):
         return Response("Senha alterada com sucesso.")
 
 
-class PasswordResetRequestView(APIView):
+class PasswordResetRequestView(BodepontoioMixin, APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -162,7 +163,7 @@ class PasswordResetRequestView(APIView):
         return Response(msg)
 
 
-class PasswordResetConfirmView(APIView):
+class PasswordResetConfirmView(BodepontoioMixin, APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -174,7 +175,7 @@ class PasswordResetConfirmView(APIView):
         return Response("Senha redefinida com sucesso.")
 
 
-class EmailConfirmView(APIView):
+class EmailConfirmView(BodepontoioMixin, APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, uid, token):
@@ -186,7 +187,7 @@ class EmailConfirmView(APIView):
         return Response("Endereço de e-mail confirmado.")
 
 
-class OTPEmailConfirmView(APIView):
+class OTPEmailConfirmView(BodepontoioMixin, APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -210,7 +211,7 @@ class OTPEmailConfirmView(APIView):
         return Response("Endereço de e-mail confirmado.")
 
 
-class OTPPasswordResetConfirmView(APIView):
+class OTPPasswordResetConfirmView(BodepontoioMixin, APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -234,7 +235,7 @@ class OTPPasswordResetConfirmView(APIView):
         return Response("Senha redefinida com sucesso.")
 
 
-class ResendEmailConfirmationView(APIView):
+class ResendEmailConfirmationView(BodepontoioMixin, APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):

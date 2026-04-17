@@ -43,11 +43,8 @@ def _flatten_errors(data, field=""):
     return errors
 
 
-def exception_handler(exc, context):
-    response = drf_exception_handler(exc, context)
-    if response is None:
-        return None
-
+def _format_response(exc, response):
+    """Apply bodepontoio error formatting to a DRF response."""
     error_type = _get_error_type(exc)
 
     if isinstance(exc, exceptions.ValidationError):
@@ -65,3 +62,32 @@ def exception_handler(exc, context):
         }
 
     return response
+
+
+def exception_handler(exc, context):
+    response = drf_exception_handler(exc, context)
+    if response is None:
+        return None
+
+    return _format_response(exc, response)
+
+
+def exception_handler_v2(exc, context):
+    """
+    Opt-in version of ``exception_handler``.
+
+    Only applies bodepontoio error formatting to views that have
+    ``bodepontoio_format = True`` (e.g. via ``BodepontoioMixin``).
+    All other views receive plain DRF error responses, making this
+    safe to set globally on projects that are gradually adopting
+    bodepontoio.
+    """
+    view = context.get("view")
+    if not getattr(view, "bodepontoio_format", False):
+        return drf_exception_handler(exc, context)
+
+    response = drf_exception_handler(exc, context)
+    if response is None:
+        return None
+
+    return _format_response(exc, response)
