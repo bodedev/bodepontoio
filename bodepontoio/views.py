@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework import permissions, status
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.exceptions import AuthenticationFailed, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
@@ -43,14 +43,14 @@ class PasswordlessLoginConfirmView(APIView):
         try:
             user = User.objects.get(email=serializer.validated_data["email"])
         except User.DoesNotExist:
-            raise AuthenticationFailed("Código inválido ou expirado.") from None
+            raise ValidationError("Código inválido ou expirado.") from None
 
         if not user.is_active:
-            raise AuthenticationFailed("Conta de usuário desativada.")
+            raise ValidationError("Conta de usuário desativada.")
 
         success, error = verify_otp(user, serializer.validated_data["code"], OTPCode.Purpose.LOGIN)
         if not success:
-            raise AuthenticationFailed(error)
+            raise ValidationError(error)
 
         if not user.auth.is_email_verified:
             user.auth.is_email_verified = True
@@ -199,11 +199,11 @@ class OTPEmailConfirmView(APIView):
         try:
             user = User.objects.get(email=serializer.validated_data["email"])
         except User.DoesNotExist:
-            raise AuthenticationFailed("Código inválido ou expirado.") from None
+            raise ValidationError("Código inválido ou expirado.") from None
 
         success, error = verify_otp(user, serializer.validated_data["code"], OTPCode.Purpose.EMAIL_CONFIRM)
         if not success:
-            raise AuthenticationFailed(error)
+            raise ValidationError(error)
 
         user.auth.is_email_verified = True
         user.auth.save(update_fields=["is_email_verified"])
@@ -223,11 +223,11 @@ class OTPPasswordResetConfirmView(APIView):
         try:
             user = User.objects.get(email=serializer.validated_data["email"])
         except User.DoesNotExist:
-            raise AuthenticationFailed("Código inválido ou expirado.") from None
+            raise ValidationError("Código inválido ou expirado.") from None
 
         success, error = verify_otp(user, serializer.validated_data["code"], OTPCode.Purpose.PASSWORD_RESET)
         if not success:
-            raise AuthenticationFailed(error)
+            raise ValidationError(error)
 
         user.set_password(serializer.validated_data["new_password"])
         user.save()
