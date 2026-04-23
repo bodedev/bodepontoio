@@ -70,7 +70,9 @@ jobs:
         run: uv sync --all-extras
 
       - name: Run tests
-        run: uv run pytest --junitxml=pytest.xml | tee pytest-coverage.txt
+        run: |
+          set -o pipefail
+          uv run pytest --junitxml=pytest.xml | tee pytest-coverage.txt
 
       - name: Coverage comment
         if: matrix.python-version == '3.12' && github.event_name == 'pull_request'
