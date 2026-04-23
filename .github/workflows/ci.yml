@@ -28,6 +28,24 @@ jobs:
       - name: Mypy
         run: uv run mypy bodepontoio/
 
+  migrations:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --all-extras
+
+      - name: Check for missing migrations
+        run: uv run django-admin makemigrations --check --dry-run --settings=bodepontoio.tests.test_settings
+
   test:
     runs-on: ubuntu-latest
     strategy:
