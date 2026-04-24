@@ -72,7 +72,7 @@ class TestOTPPasswordReset:
             "/auth/password/reset/confirm/otp/",
             {"email": user.email, "code": "000000", "new_password": "brandnewpassword"},
         )
-        assert response.status_code == 400
+        assert response.status_code == 401
 
     @override_settings(BODEPONTOIO=OTP_STRATEGY)
     def test_reset_confirm_expired_code(self, api_client, create_user):
@@ -84,7 +84,7 @@ class TestOTPPasswordReset:
             "/auth/password/reset/confirm/otp/",
             {"email": user.email, "code": otp.code, "new_password": "brandnewpassword"},
         )
-        assert response.status_code == 400
+        assert response.status_code == 401
 
     @override_settings(BODEPONTOIO=OTP_STRATEGY)
     def test_reset_confirm_unknown_email(self, api_client):
@@ -92,7 +92,7 @@ class TestOTPPasswordReset:
             "/auth/password/reset/confirm/otp/",
             {"email": "nobody@example.com", "code": "123456", "new_password": "brandnewpassword"},
         )
-        assert response.status_code == 400
+        assert response.status_code == 401
 
     @override_settings(BODEPONTOIO=OTP_STRATEGY)
     def test_reset_confirm_weak_password(self, api_client, create_user):
@@ -117,7 +117,7 @@ class TestOTPPasswordReset:
             "/auth/password/reset/confirm/otp/",
             {"email": user.email, "code": otp.code, "new_password": "brandnewpassword"},
         )
-        assert response.status_code == 400
+        assert response.status_code == 401
         user.refresh_from_db()
         assert user.check_password("testpassword123")
 
