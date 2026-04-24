@@ -83,7 +83,7 @@ class TestLoginOTPConfirm:
             "/auth/login/otp/confirm/",
             {"email": user.email, "code": "000000"},
         )
-        assert response.status_code == 400
+        assert response.status_code == 401
 
     @override_settings(BODEPONTOIO=OTP_STRATEGY)
     def test_expired_code(self, api_client, create_user):
@@ -95,7 +95,7 @@ class TestLoginOTPConfirm:
             "/auth/login/otp/confirm/",
             {"email": user.email, "code": otp.code},
         )
-        assert response.status_code == 400
+        assert response.status_code == 401
 
     @override_settings(BODEPONTOIO=OTP_STRATEGY)
     def test_inactive_user(self, api_client, create_user):
@@ -107,7 +107,7 @@ class TestLoginOTPConfirm:
             "/auth/login/otp/confirm/",
             {"email": user.email, "code": otp.code},
         )
-        assert response.status_code == 400
+        assert response.status_code == 401
 
     @override_settings(BODEPONTOIO=OTP_STRATEGY)
     def test_unknown_email(self, api_client):
@@ -115,7 +115,7 @@ class TestLoginOTPConfirm:
             "/auth/login/otp/confirm/",
             {"email": "nobody@example.com", "code": "123456"},
         )
-        assert response.status_code == 400
+        assert response.status_code == 401
 
     @override_settings(BODEPONTOIO=OTP_STRATEGY)
     def test_max_attempts_burns_code(self, api_client, create_user):
@@ -130,7 +130,7 @@ class TestLoginOTPConfirm:
             "/auth/login/otp/confirm/",
             {"email": user.email, "code": otp.code},
         )
-        assert response.status_code == 400
+        assert response.status_code == 401
 
     def test_returns_404_when_strategy_is_password(self, api_client, create_user):
         user = create_user(email="user@example.com", is_email_verified=True)
