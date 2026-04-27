@@ -54,6 +54,11 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "bodepontoio.exceptions.exception_handler",
     "DEFAULT_RENDERER_CLASSES": ["bodepontoio.renderers.SuccessJSONRenderer"],
 }
+```
+
+> **Adopting gradually?** If you're adding bodepontoio to an existing project and don't want to change the response format for all views at once, see [Gradual adoption](#gradual-adoption) below.
+
+```python
 
 SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
@@ -364,6 +369,38 @@ Possible `type` values:
 - `throttled`
 
 Unknown exception types fall back to the class name in `snake_case`.
+
+## Gradual adoption
+
+If you're adding bodepontoio to an existing project, you can opt views in to the standard response format one at a time instead of changing the whole project at once.
+
+**1. Use `exception_handler_v2` instead of `exception_handler`:**
+
+```python
+REST_FRAMEWORK = {
+    ...
+    "EXCEPTION_HANDLER": "bodepontoio.exceptions.exception_handler_v2",
+    # Do NOT set DEFAULT_RENDERER_CLASSES globally
+}
+```
+
+`exception_handler_v2` only formats error responses for views that explicitly opt in. All other views continue returning plain DRF error responses (`{"detail": "..."}`), so installing it globally is safe.
+
+**2. Add `BodepontoioMixin` to views you want to migrate:**
+
+```python
+from bodepontoio.mixins import BodepontoioMixin
+from rest_framework.views import APIView
+
+class MyView(BodepontoioMixin, APIView):
+    ...
+```
+
+The mixin does two things:
+- Sets `renderer_classes = [SuccessJSONRenderer]` so success responses are wrapped
+- Marks the view with `bodepontoio_format = True` so `exception_handler_v2` formats its error responses
+
+Views without the mixin are completely unaffected.
 
 ## Pagination
 
