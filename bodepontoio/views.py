@@ -14,7 +14,6 @@ from .emails import (
 )
 from .models import OTPCode
 from .otp import verify_otp
-from .users import get_or_create_user_by_email
 from .serializers import (
     EmailConfirmSerializer,
     GoogleLoginSerializer,
@@ -32,6 +31,7 @@ from .serializers import (
     ResendEmailConfirmationSerializer,
     TokenRefreshSerializer,
 )
+from .users import get_or_create_user_by_email
 
 User = get_user_model()
 
