@@ -20,6 +20,14 @@ def check_reset_token(user, token):
     return default_token_generator.check_token(user, token)
 
 
+def make_login_token(user):
+    return default_token_generator.make_token(user)
+
+
+def check_login_token(user, token):
+    return default_token_generator.check_token(user, token)
+
+
 class EmailConfirmationTokenGenerator(PasswordResetTokenGenerator):
     def _make_hash_value(self, user, timestamp):
         return f"{user.pk}{timestamp}{user.auth.is_email_verified}"

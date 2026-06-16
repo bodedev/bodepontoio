@@ -9,7 +9,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .conf import bodepontoio_settings
-from .tokens import check_confirmation_token, check_reset_token, decode_uid
+from .tokens import check_confirmation_token, check_login_token, check_reset_token, decode_uid
 from .users import get_or_create_user_by_email, has_username_field, unique_username_for_email
 
 User = get_user_model()
@@ -227,11 +227,37 @@ class GoogleLoginSerializer(serializers.Serializer):
 
 class PasswordlessLoginRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
+    next = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+
+    def validate_next(self, value):
+        if not value:
+            return ""
+        if not value.startswith("/") or value.startswith("//") or "://" in value or "\\" in value:
+            raise serializers.ValidationError(
+                "O destino deve ser um caminho relativo iniciado por '/'."
+            )
+        return value
 
 
 class PasswordlessLoginConfirmSerializer(serializers.Serializer):
     email = serializers.EmailField()
     code = serializers.CharField(max_length=8)
+
+
+class MagicLinkLoginConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+
+    def validate(self, attrs):
+        try:
+            pk = decode_uid(attrs["uid"])
+            user = User.objects.get(pk=pk)
+        except (User.DoesNotExist, ValueError, TypeError, OverflowError, Exception):
+            raise serializers.ValidationError("Link inválido ou expirado.") from None
+        if not check_login_token(user, attrs["token"]):
+            raise serializers.ValidationError("Link inválido ou expirado.")
+        attrs["user"] = user
+        return attrs
 
 
 class OTPEmailConfirmSerializer(serializers.Serializer):

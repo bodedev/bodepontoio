@@ -7,7 +7,11 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .conf import bodepontoio_settings
-from .emails import send_email_confirmation_email, send_login_otp_email, send_password_reset_email
+from .emails import (
+    send_email_confirmation_email,
+    send_login_email,
+    send_password_reset_email,
+)
 from .models import OTPCode
 from .otp import verify_otp
 from .users import get_or_create_user_by_email
@@ -16,6 +20,7 @@ from .serializers import (
     GoogleLoginSerializer,
     LoginSerializer,
     LogoutSerializer,
+    MagicLinkLoginConfirmSerializer,
     OTPEmailConfirmSerializer,
     OTPPasswordResetConfirmSerializer,
     PasswordChangeSerializer,
@@ -61,18 +66,49 @@ class PasswordlessLoginConfirmView(APIView):
         return Response(_get_tokens(user))
 
 
+class MagicLinkLoginConfirmView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        if bodepontoio_settings.LOGIN_STRATEGY != "magic_link":
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        serializer = MagicLinkLoginConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data["user"]
+
+        if not user.is_active:
+            raise AuthenticationFailed("Conta de usuário desativada.")
+
+        if not user.auth.is_email_verified:
+            user.auth.is_email_verified = True
+            user.auth.save(update_fields=["is_email_verified"])
+
+        from django.utils import timezone
+        user.last_login = timezone.now()
+        user.save(update_fields=["last_login"])
+
+        from .serializers import _get_tokens
+        return Response(_get_tokens(user))
+
+
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        if bodepontoio_settings.LOGIN_STRATEGY == "otp":
+        if bodepontoio_settings.LOGIN_STRATEGY in ("otp", "magic_link"):
             serializer = PasswordlessLoginRequestSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             email = serializer.validated_data["email"]
+            next_path = serializer.validated_data.get("next", "")
             user, _created = get_or_create_user_by_email(email)
             if user.is_active:
-                send_login_otp_email(user)
-            return Response("Um código de acesso foi enviado para o seu e-mail.")
+                send_login_email(user, next_path=next_path)
+            if bodepontoio_settings.LOGIN_STRATEGY == "magic_link":
+                msg = "Um link de acesso foi enviado para o seu e-mail."
+            else:
+                msg = "Um código de acesso foi enviado para o seu e-mail."
+            return Response(msg)
 
         serializer = LoginSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
