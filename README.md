@@ -78,6 +78,7 @@ BODEPONTOIO = {
 
     # Login strategy (default: "password")
     "LOGIN_STRATEGY": "otp",  # "password", "otp" or "magic_link"
+    "LOGIN_AUTO_SIGNUP": False,  # default: True — see Passwordless Login
 }
 ```
 
@@ -254,9 +255,17 @@ Each confirm endpoint returns 404 when its matching strategy is not active.
 
 ### Signup on first login
 
-When `LOGIN_STRATEGY` is `"otp"` or `"magic_link"`, `POST login/` for an unknown email **creates the account on the fly** (with an unusable password) and sends the code/link to the new address. The same endpoint doubles as registration — no separate signup step is required.
+When `LOGIN_STRATEGY` is `"otp"` or `"magic_link"`, `POST login/` for an unknown email **creates the account on the fly** by default (with an unusable password) and sends the code/link to the new address. The same endpoint doubles as registration — no separate signup step is required.
 
 If the user model has a `username` field, a unique username is auto-generated from the email's local part.
+
+Disable the on-the-fly signup if you want `login/` to be login-only (unknown emails silently no-op):
+
+```python
+BODEPONTOIO = {
+    "LOGIN_AUTO_SIGNUP": False,  # default: True
+}
+```
 
 ### Post-login navigation (`next`)
 

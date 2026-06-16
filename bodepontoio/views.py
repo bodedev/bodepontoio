@@ -101,8 +101,11 @@ class LoginView(APIView):
             serializer.is_valid(raise_exception=True)
             email = serializer.validated_data["email"]
             next_path = serializer.validated_data.get("next", "")
-            user, _created = get_or_create_user_by_email(email)
-            if user.is_active:
+            if bodepontoio_settings.LOGIN_AUTO_SIGNUP:
+                user, _created = get_or_create_user_by_email(email)
+            else:
+                user = User.objects.filter(email=email).first()
+            if user is not None and user.is_active:
                 send_login_email(user, next_path=next_path)
             if bodepontoio_settings.LOGIN_STRATEGY == "magic_link":
                 msg = "Um link de acesso foi enviado para o seu e-mail."

@@ -81,6 +81,21 @@ class TestLoginMagicLinkRequest:
         assert response.status_code == 400
         assert len(mail.outbox) == 0
 
+    @override_settings(BODEPONTOIO={**MAGIC_LINK_STRATEGY, "LOGIN_AUTO_SIGNUP": False})
+    def test_auto_signup_disabled_unknown_email_no_user_no_email(self, api_client):
+        User = get_user_model()
+        response = api_client.post("/auth/login/", {"email": "nobody@example.com"})
+        assert response.status_code == 200
+        assert not User.objects.filter(email="nobody@example.com").exists()
+        assert len(mail.outbox) == 0
+
+    @override_settings(BODEPONTOIO={**MAGIC_LINK_STRATEGY, "LOGIN_AUTO_SIGNUP": False})
+    def test_auto_signup_disabled_known_email_still_sends_link(self, api_client, create_user):
+        create_user(email="user@example.com")
+        response = api_client.post("/auth/login/", {"email": "user@example.com"})
+        assert response.status_code == 200
+        assert len(mail.outbox) == 1
+
     @override_settings(BODEPONTOIO=MAGIC_LINK_STRATEGY)
     def test_inactive_user_no_email(self, api_client, create_user):
         user = create_user(email="inactive@example.com")
