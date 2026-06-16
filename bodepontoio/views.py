@@ -10,6 +10,7 @@ from .conf import bodepontoio_settings
 from .emails import send_email_confirmation_email, send_login_otp_email, send_password_reset_email
 from .models import OTPCode
 from .otp import verify_otp
+from .users import get_or_create_user_by_email
 from .serializers import (
     EmailConfirmSerializer,
     GoogleLoginSerializer,
@@ -67,13 +68,11 @@ class LoginView(APIView):
         if bodepontoio_settings.LOGIN_STRATEGY == "otp":
             serializer = PasswordlessLoginRequestSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            try:
-                user = User.objects.get(email=serializer.validated_data["email"])
-                if user.is_active:
-                    send_login_otp_email(user)
-            except User.DoesNotExist:
-                pass  # Anti-enumeration: always return 200
-            return Response("Se esse e-mail existir, um código de acesso foi enviado.")
+            email = serializer.validated_data["email"]
+            user, _created = get_or_create_user_by_email(email)
+            if user.is_active:
+                send_login_otp_email(user)
+            return Response("Um código de acesso foi enviado para o seu e-mail.")
 
         serializer = LoginSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
@@ -124,7 +123,9 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        
         send_email_confirmation_email(user, request)
+
         return Response(
             "Cadastro realizado com sucesso. Verifique seu e-mail para confirmar sua conta.",
             status=status.HTTP_201_CREATED,

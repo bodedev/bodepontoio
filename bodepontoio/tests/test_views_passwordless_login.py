@@ -36,10 +36,15 @@ class TestLoginOTPRequest:
         assert otp.code in mail.outbox[0].body
 
     @override_settings(BODEPONTOIO=OTP_STRATEGY)
-    def test_anti_enumeration_unknown_email(self, api_client):
+    def test_unknown_email_creates_user_and_sends_otp(self, api_client):
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
         response = api_client.post("/auth/login/", {"email": "nobody@example.com"})
         assert response.status_code == 200
-        assert len(mail.outbox) == 0
+        assert User.objects.filter(email="nobody@example.com").exists()
+        assert len(mail.outbox) == 1
+        assert "nobody@example.com" in mail.outbox[0].to
 
     @override_settings(BODEPONTOIO=OTP_STRATEGY)
     def test_anti_enumeration_inactive_user(self, api_client, create_user):

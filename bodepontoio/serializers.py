@@ -10,6 +10,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from .conf import bodepontoio_settings
 from .tokens import check_confirmation_token, check_reset_token, decode_uid
+from .users import get_or_create_user_by_email, has_username_field, unique_username_for_email
 
 User = get_user_model()
 
@@ -53,14 +54,18 @@ class LoginSerializer(serializers.Serializer):
         try:
             user_obj = User.objects.get(email=login)
         except User.DoesNotExist:
-            try:
-                user_obj = User.objects.get(username=login)
-            except User.DoesNotExist:
+            user_obj = None
+            if has_username_field():
+                try:
+                    user_obj = User.objects.get(username=login)
+                except User.DoesNotExist:
+                    user_obj = None
+            if user_obj is None:
                 raise serializers.ValidationError("Credenciais inválidas.") from None
 
         user = authenticate(
             request=self.context.get("request"),
-            username=user_obj.username,
+            username=getattr(user_obj, User.USERNAME_FIELD),
             password=attrs["password"],
         )
 
@@ -110,13 +115,19 @@ class LogoutSerializer(serializers.Serializer):
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(required=False)
     email = serializers.EmailField(required=True)
     password = serializers.CharField(write_only=True, min_length=8)
 
     class Meta:
         model = User
-        fields = ("username", "email", "password", "first_name", "last_name")
+        fields = ("email", "password", "first_name", "last_name")
+        if has_username_field():
+            fields = ("username",) + fields
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if has_username_field() and "username" in self.fields:
+            self.fields["username"].required = False
 
     def validate_username(self, value):
         if User.objects.filter(username=value).exists():
@@ -128,18 +139,9 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Já existe um usuário com este e-mail.")
         return value
 
-    def _unique_username(self, base: str) -> str:
-        username = base
-        suffix = 1
-        while User.objects.filter(username=username).exists():
-            username = f"{base}{suffix}"
-            suffix += 1
-        return username
-
     def create(self, validated_data):
-        if not validated_data.get("username"):
-            base = validated_data["email"].split("@")[0]
-            validated_data["username"] = self._unique_username(base)
+        if has_username_field() and not validated_data.get("username"):
+            validated_data["username"] = unique_username_for_email(validated_data["email"])
 
         return User.objects.create_user(**validated_data)
 
@@ -203,18 +205,11 @@ class GoogleLoginSerializer(serializers.Serializer):
         email = id_info["email"]
         first_name = id_info.get("given_name", "")
         last_name = id_info.get("family_name", "")
-        user, created = User.objects.get_or_create(
-            username=email,
-            defaults={
-                "email": email,
-                "first_name": first_name,
-                "last_name": last_name,
-            },
+        user, _created = get_or_create_user_by_email(
+            email,
+            first_name=first_name,
+            last_name=last_name,
         )
-
-        if created:
-            user.set_unusable_password()
-            user.save(update_fields=["password"])
 
         profile, _ = user.auth.__class__.objects.get_or_create(user=user)
         profile.is_email_verified = True

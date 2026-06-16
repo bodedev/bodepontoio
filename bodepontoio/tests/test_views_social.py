@@ -33,22 +33,22 @@ class TestGoogleLoginView:
     def test_new_user_has_unusable_password(self, client):
         with patch(MOCK_TARGET, return_value=make_id_info(email="new@example.com")):
             client.post(GOOGLE_URL, {"id_token": "valid-token"}, format="json")
-        user = User.objects.get(username="new@example.com")
+        user = User.objects.get(email="new@example.com")
         assert not user.has_usable_password()
 
     def test_new_user_gets_name_from_google(self, client):
         with patch(MOCK_TARGET, return_value=make_id_info(email="named@example.com", given_name="Jane", family_name="Smith")):
             client.post(GOOGLE_URL, {"id_token": "valid-token"}, format="json")
-        user = User.objects.get(username="named@example.com")
+        user = User.objects.get(email="named@example.com")
         assert user.first_name == "Jane"
         assert user.last_name == "Smith"
 
     def test_existing_user_returns_tokens(self, client):
-        User.objects.create_user(username="existing@example.com", email="existing@example.com", password="pass")
+        User.objects.create_user(username="existing", email="existing@example.com", password="pass")
         with patch(MOCK_TARGET, return_value=make_id_info(email="existing@example.com")):
             response = client.post(GOOGLE_URL, {"id_token": "valid-token"}, format="json")
         assert response.status_code == 200
-        assert User.objects.filter(username="existing@example.com").count() == 1
+        assert User.objects.filter(email="existing@example.com").count() == 1
 
     def test_invalid_token_returns_401(self, client):
         with patch(MOCK_TARGET, side_effect=ValueError("bad token")):
