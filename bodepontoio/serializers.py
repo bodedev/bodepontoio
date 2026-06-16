@@ -120,7 +120,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ("email", "password", "first_name", "last_name")
+        fields: tuple[str, ...] = ("email", "password", "first_name", "last_name")
         if has_username_field():
             fields = ("username",) + fields
 
