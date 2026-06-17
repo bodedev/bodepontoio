@@ -35,7 +35,7 @@ class TestLoginOTPRequest:
         otp = OTPCode.objects.get(purpose=OTPCode.Purpose.LOGIN)
         assert otp.code in mail.outbox[0].body
 
-    @override_settings(BODEPONTOIO=OTP_STRATEGY)
+    @override_settings(BODEPONTOIO={**OTP_STRATEGY, "LOGIN_AUTO_SIGNUP": True})
     def test_unknown_email_creates_user_and_sends_otp(self, api_client):
         from django.contrib.auth import get_user_model
 

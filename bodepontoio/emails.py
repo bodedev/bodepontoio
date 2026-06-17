@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 from django.conf import settings
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
@@ -104,8 +106,6 @@ def send_login_email(user, next_path=""):
 
 
 def _send_login_magic_link(user, next_path=""):
-    from urllib.parse import quote
-
     uid = make_uid(user)
     token = make_login_token(user)
 
@@ -116,9 +116,12 @@ def _send_login_magic_link(user, next_path=""):
     if next_path:
         login_url += f"?next={quote(next_path, safe='/')}"
 
+    expiry_hours = max(1, settings.PASSWORD_RESET_TIMEOUT // 3600)
+
     context = {
         "user": user,
         "login_url": login_url,
+        "expiry_hours": expiry_hours,
         "brand_color": bodepontoio_settings.EMAIL_BRAND_COLOR,
     }
     html_message = render_to_string("bodepontoio/login_magic_link.html", context)

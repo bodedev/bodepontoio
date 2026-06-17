@@ -165,7 +165,7 @@ class EmailConfirmSerializer(serializers.Serializer):
         try:
             pk = decode_uid(attrs["uid"])
             user = User.objects.get(pk=pk)
-        except (User.DoesNotExist, ValueError, TypeError, OverflowError, Exception):
+        except (User.DoesNotExist, ValueError, TypeError, OverflowError):
             raise serializers.ValidationError(
                 "Link de confirmação inválido ou expirado."
             ) from None
@@ -226,6 +226,7 @@ class GoogleLoginSerializer(serializers.Serializer):
 
 
 class PasswordlessLoginRequestSerializer(serializers.Serializer):
+    # `next` is only consumed by the magic_link strategy; ignored for OTP.
     email = serializers.EmailField()
     next = serializers.CharField(required=False, allow_blank=True, max_length=2000)
 
@@ -252,7 +253,7 @@ class MagicLinkLoginConfirmSerializer(serializers.Serializer):
         try:
             pk = decode_uid(attrs["uid"])
             user = User.objects.get(pk=pk)
-        except (User.DoesNotExist, ValueError, TypeError, OverflowError, Exception):
+        except (User.DoesNotExist, ValueError, TypeError, OverflowError):
             raise serializers.ValidationError("Link inválido ou expirado.") from None
         if not check_login_token(user, attrs["token"]):
             raise serializers.ValidationError("Link inválido ou expirado.")
@@ -280,7 +281,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         try:
             pk = decode_uid(attrs["uid"])
             user = User.objects.get(pk=pk)
-        except (User.DoesNotExist, ValueError, TypeError, OverflowError, Exception):
+        except (User.DoesNotExist, ValueError, TypeError, OverflowError):
             raise serializers.ValidationError("UID inválido.") from None
         if not check_reset_token(user, attrs["token"]):
             raise serializers.ValidationError("Token inválido ou expirado.")

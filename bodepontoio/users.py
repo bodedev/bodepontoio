@@ -23,6 +23,8 @@ def unique_username_for_email(email):
 
 
 def get_or_create_user_by_email(email, **extra_fields):
+    from django.db import IntegrityError, transaction
+
     User = get_user_model()
     try:
         return User.objects.get(email=email), False
@@ -35,5 +37,9 @@ def get_or_create_user_by_email(email, **extra_fields):
 
     user = User(**fields)
     user.set_unusable_password()
-    user.save()
+    try:
+        with transaction.atomic():
+            user.save()
+    except IntegrityError:
+        return User.objects.get(email=email), False
     return user, True

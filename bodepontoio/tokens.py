@@ -20,15 +20,24 @@ def check_reset_token(user, token):
     return default_token_generator.check_token(user, token)
 
 
+class LoginTokenGenerator(PasswordResetTokenGenerator):
+    key_salt = "bodepontoio.tokens.LoginTokenGenerator"
+
+
+login_token_generator = LoginTokenGenerator()
+
+
 def make_login_token(user):
-    return default_token_generator.make_token(user)
+    return login_token_generator.make_token(user)
 
 
 def check_login_token(user, token):
-    return default_token_generator.check_token(user, token)
+    return login_token_generator.check_token(user, token)
 
 
 class EmailConfirmationTokenGenerator(PasswordResetTokenGenerator):
+    key_salt = "bodepontoio.tokens.EmailConfirmationTokenGenerator"
+
     def _make_hash_value(self, user, timestamp):
         return f"{user.pk}{timestamp}{user.auth.is_email_verified}"
 

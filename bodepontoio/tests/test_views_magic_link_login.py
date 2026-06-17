@@ -28,7 +28,7 @@ class TestLoginMagicLinkRequest:
         assert uid in mail.outbox[0].body
         assert "/login/magic/" in mail.outbox[0].body
 
-    @override_settings(BODEPONTOIO=MAGIC_LINK_STRATEGY)
+    @override_settings(BODEPONTOIO={**MAGIC_LINK_STRATEGY, "LOGIN_AUTO_SIGNUP": True})
     def test_unknown_email_creates_user_and_sends_link(self, api_client):
         User = get_user_model()
         response = api_client.post("/auth/login/", {"email": "nobody@example.com"})
@@ -104,6 +104,36 @@ class TestLoginMagicLinkRequest:
         response = api_client.post("/auth/login/", {"email": "inactive@example.com"})
         assert response.status_code == 200
         assert len(mail.outbox) == 0
+
+    @override_settings(
+        BODEPONTOIO={
+            **MAGIC_LINK_STRATEGY,
+            "LOGIN_AUTO_SIGNUP": True,
+            "LOGIN_THROTTLE_IP_RATE": "2/min",
+            "LOGIN_THROTTLE_EMAIL_RATE": None,
+        }
+    )
+    def test_ip_throttle_blocks_auto_signup_flood(self, api_client):
+        for i in range(2):
+            response = api_client.post("/auth/login/", {"email": f"new{i}@example.com"})
+            assert response.status_code == 200
+        response = api_client.post("/auth/login/", {"email": "new2@example.com"})
+        assert response.status_code == 429
+
+    @override_settings(
+        BODEPONTOIO={
+            **MAGIC_LINK_STRATEGY,
+            "LOGIN_THROTTLE_IP_RATE": None,
+            "LOGIN_THROTTLE_EMAIL_RATE": "2/min",
+        }
+    )
+    def test_email_throttle_blocks_repeated_requests(self, api_client, create_user):
+        create_user(email="user@example.com")
+        for _ in range(2):
+            response = api_client.post("/auth/login/", {"email": "user@example.com"})
+            assert response.status_code == 200
+        response = api_client.post("/auth/login/", {"email": "user@example.com"})
+        assert response.status_code == 429
 
 
 @pytest.mark.django_db

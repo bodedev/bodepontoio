@@ -78,7 +78,7 @@ BODEPONTOIO = {
 
     # Login strategy (default: "password")
     "LOGIN_STRATEGY": "otp",  # "password", "otp" or "magic_link"
-    "LOGIN_AUTO_SIGNUP": False,  # default: True — see Passwordless Login
+    "LOGIN_AUTO_SIGNUP": True,  # default: False — see Passwordless Login
 }
 ```
 
@@ -255,15 +255,24 @@ Each confirm endpoint returns 404 when its matching strategy is not active.
 
 ### Signup on first login
 
-When `LOGIN_STRATEGY` is `"otp"` or `"magic_link"`, `POST login/` for an unknown email **creates the account on the fly** by default (with an unusable password) and sends the code/link to the new address. The same endpoint doubles as registration — no separate signup step is required.
+When `LOGIN_STRATEGY` is `"otp"` or `"magic_link"` and `LOGIN_AUTO_SIGNUP` is `True`, `POST login/` for an unknown email **creates the account on the fly** (with an unusable password) and sends the code/link to the new address. The same endpoint doubles as registration — no separate signup step is required.
 
 If the user model has a `username` field, a unique username is auto-generated from the email's local part.
 
-Disable the on-the-fly signup if you want `login/` to be login-only (unknown emails silently no-op):
+`LOGIN_AUTO_SIGNUP` defaults to `False` so that `login/` only mails known accounts. Enable it explicitly to opt into the login-doubles-as-signup flow:
 
 ```python
 BODEPONTOIO = {
-    "LOGIN_AUTO_SIGNUP": False,  # default: True
+    "LOGIN_AUTO_SIGNUP": True,  # default: False
+}
+```
+
+`login/` is throttled out of the box by IP and by email to protect against abuse (especially relevant when auto-signup is enabled, since it can otherwise be used to mass-create user rows). Defaults are `20/hour` per IP and `10/hour` per email; tune or disable via:
+
+```python
+BODEPONTOIO = {
+    "LOGIN_THROTTLE_IP_RATE": "20/hour",     # set to None to disable
+    "LOGIN_THROTTLE_EMAIL_RATE": "10/hour",  # set to None to disable
 }
 ```
 

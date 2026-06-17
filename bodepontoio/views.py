@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
@@ -14,6 +15,7 @@ from .emails import (
 )
 from .models import OTPCode
 from .otp import verify_otp
+from .throttles import LoginEmailThrottle, LoginIPThrottle
 from .serializers import (
     EmailConfirmSerializer,
     GoogleLoginSerializer,
@@ -62,6 +64,9 @@ class PasswordlessLoginConfirmView(APIView):
             user.auth.is_email_verified = True
             user.auth.save(update_fields=["is_email_verified"])
 
+        user.last_login = timezone.now()
+        user.save(update_fields=["last_login"])
+
         from .serializers import _get_tokens
         return Response(_get_tokens(user))
 
@@ -84,7 +89,9 @@ class MagicLinkLoginConfirmView(APIView):
             user.auth.is_email_verified = True
             user.auth.save(update_fields=["is_email_verified"])
 
-        from django.utils import timezone
+        # Single-use: updating last_login invalidates the token hash, so the
+        # same link cannot be replayed. Do not remove this without replacing
+        # the single-use guarantee.
         user.last_login = timezone.now()
         user.save(update_fields=["last_login"])
 
@@ -94,6 +101,7 @@ class MagicLinkLoginConfirmView(APIView):
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [LoginIPThrottle, LoginEmailThrottle]
 
     def post(self, request):
         if bodepontoio_settings.LOGIN_STRATEGY in ("otp", "magic_link"):
@@ -162,7 +170,6 @@ class RegisterView(APIView):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        
         send_email_confirmation_email(user, request)
 
         return Response(
