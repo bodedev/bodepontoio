@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.signals import user_logged_in
 from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.exceptions import AuthenticationFailed
@@ -38,6 +39,13 @@ from .users import get_or_create_user_by_email
 User = get_user_model()
 
 
+def _record_login(request, user):
+    """Fire the ``user_logged_in`` signal so LoginRecord (and Django's
+    update_last_login) run for token-based logins, which never call
+    ``django.contrib.auth.login()``."""
+    user_logged_in.send(sender=user.__class__, request=request, user=user)
+
+
 class PasswordlessLoginConfirmView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -67,6 +75,7 @@ class PasswordlessLoginConfirmView(APIView):
         user.last_login = timezone.now()
         user.save(update_fields=["last_login"])
 
+        _record_login(request, user)
         from .serializers import _get_tokens
         return Response(_get_tokens(user))
 
@@ -95,6 +104,7 @@ class MagicLinkLoginConfirmView(APIView):
         user.last_login = timezone.now()
         user.save(update_fields=["last_login"])
 
+        _record_login(request, user)
         from .serializers import _get_tokens
         return Response(_get_tokens(user))
 
@@ -123,6 +133,7 @@ class LoginView(APIView):
 
         serializer = LoginSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
+        _record_login(request, serializer.validated_data["user"])
         return Response(serializer.data)
 
 
@@ -156,6 +167,7 @@ class GoogleLoginView(APIView):
     def post(self, request):
         serializer = GoogleLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        _record_login(request, serializer.validated_data["user"])
         return Response(serializer.data)
 
 

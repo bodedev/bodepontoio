@@ -1,5 +1,6 @@
 from django.contrib.auth import authenticate, get_user_model
 from django.core.exceptions import ImproperlyConfigured
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.module_loading import import_string
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
@@ -233,10 +234,21 @@ class PasswordlessLoginRequestSerializer(serializers.Serializer):
     def validate_next(self, value):
         if not value:
             return ""
-        if not value.startswith("/") or value.startswith("//") or "://" in value or "\\" in value:
-            raise serializers.ValidationError(
-                "O destino deve ser um caminho relativo iniciado por '/'."
-            )
+        error = serializers.ValidationError(
+            "O destino deve ser um caminho relativo iniciado por '/'."
+        )
+        # Browsers strip tab/CR/LF anywhere in a URL before navigating, so
+        # "/\t/evil.com" would collapse to the protocol-relative "//evil.com".
+        # url_has_allowed_host_and_scheme does not catch internal control
+        # characters, so reject them explicitly first.
+        if any(c in value for c in "\t\r\n"):
+            raise error
+        if (
+            not value.startswith("/")
+            or value.startswith("//")
+            or not url_has_allowed_host_and_scheme(value, allowed_hosts=None)
+        ):
+            raise error
         return value
 
 

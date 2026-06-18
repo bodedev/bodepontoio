@@ -1,9 +1,13 @@
 from django.contrib import admin
 
 from bodepontoio.models import ConsultaCEP, LoginRecord, OptimizedImageWithTinyPNG, OTPCode, Pais, UserAuth
+from bodepontoio.users import has_username_field
 
 FORMATO_DATA_HORA_PADRAO_ADMIN = '%d/%m/%Y %H:%M:%S'
 FORMATO_DATA_SIMPLIFICADO = "%d/%m/%Y"
+
+# Custom user models may not have a `username` field; only search it when present.
+_USER_SEARCH_FIELDS = ('user__email',) + (('user__username',) if has_username_field() else ())
 
 
 class BaseExcludeLogicDeleted(admin.ModelAdmin):
@@ -21,10 +25,7 @@ class LoginRecordAdmin(admin.ModelAdmin):
         'user',
         'ip',
     )
-    search_fields = (
-        'user__email',
-        'user__username',
-    )
+    search_fields = _USER_SEARCH_FIELDS
     readonly_fields = ('user',)
 
     def data(self, obj):
@@ -103,10 +104,7 @@ class UserAuthAdmin(admin.ModelAdmin):
         'is_email_verified',
         'data',
     )
-    search_fields = (
-        'user__email',
-        'user__username',
-    )
+    search_fields = _USER_SEARCH_FIELDS
     list_filter = ('is_email_verified',)
     readonly_fields = ('user',)
 
@@ -132,7 +130,7 @@ class UserAuthAdmin(admin.ModelAdmin):
 class OTPCodeAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "purpose", "code", "is_used", "attempts", "data")
     list_filter = ("purpose", "is_used")
-    search_fields = ("user__email", "user__username")
+    search_fields = _USER_SEARCH_FIELDS
     readonly_fields = (
         "user", "code", "purpose", "expires_at", "is_used", "attempts", "created", "updated"
     )

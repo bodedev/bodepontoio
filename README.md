@@ -278,6 +278,21 @@ BODEPONTOIO = {
 }
 ```
 
+> ⚠️ **The IP throttle requires `NUM_PROXIES` to be configured.** DRF derives the client
+> IP from `X-Forwarded-For`, which the client controls. Unless you tell DRF how many
+> trusted proxies sit in front of the app, an attacker can rotate that header and get a
+> fresh throttle bucket per request, bypassing `LOGIN_THROTTLE_IP_RATE` entirely. Set it
+> to match your deployment:
+>
+> ```python
+> REST_FRAMEWORK = {
+>     "NUM_PROXIES": 1,  # number of trusted proxies (nginx, LB, CDN…); use 0 if none
+> }
+> ```
+>
+> If you don't know the proxy depth, `0` is the safe default (uses the unspoofable
+> `REMOTE_ADDR`). The per-email throttle is unaffected — it keys on the request body.
+
 ### Post-login navigation (`next`)
 
 The magic-link request accepts an optional `next` field — a relative path the frontend should navigate to after exchanging the link for tokens:

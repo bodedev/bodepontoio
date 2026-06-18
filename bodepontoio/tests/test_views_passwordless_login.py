@@ -144,6 +144,15 @@ class TestLoginOTPConfirm:
         assert "refresh" in response.data
 
     @override_settings(BODEPONTOIO=OTP_STRATEGY)
+    def test_creates_login_record(self, api_client, create_user):
+        from bodepontoio.models import LoginRecord
+
+        user = create_user(email="user@example.com", is_email_verified=True)
+        otp = generate_otp(user, OTPCode.Purpose.LOGIN)
+        api_client.post("/auth/login/otp/confirm/", {"email": user.email, "code": otp.code})
+        assert LoginRecord.objects.filter(user=user).count() == 1
+
+    @override_settings(BODEPONTOIO=OTP_STRATEGY)
     def test_auto_verifies_email(self, api_client, create_user):
         user = create_user(email="unverified@example.com", is_email_verified=False)
         otp = generate_otp(user, OTPCode.Purpose.LOGIN)

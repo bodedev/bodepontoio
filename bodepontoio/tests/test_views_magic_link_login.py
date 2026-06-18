@@ -69,6 +69,9 @@ class TestLoginMagicLinkRequest:
             "javascript:alert(1)",
             "dashboard",
             "\\\\evil.example.com",
+            "/\t//evil.example.com",
+            "/\r/evil.example.com",
+            "/\n/evil.example.com",
         ],
     )
     @override_settings(BODEPONTOIO=MAGIC_LINK_STRATEGY)
