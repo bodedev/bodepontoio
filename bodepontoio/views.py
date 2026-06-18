@@ -15,7 +15,6 @@ from .emails import (
 )
 from .models import OTPCode
 from .otp import verify_otp
-from .throttles import LoginEmailThrottle, LoginIPThrottle
 from .serializers import (
     EmailConfirmSerializer,
     GoogleLoginSerializer,
@@ -33,6 +32,7 @@ from .serializers import (
     ResendEmailConfirmationSerializer,
     TokenRefreshSerializer,
 )
+from .throttles import LoginEmailThrottle, LoginIPThrottle
 from .users import get_or_create_user_by_email
 
 User = get_user_model()
