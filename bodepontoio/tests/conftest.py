@@ -1,12 +1,18 @@
 import pytest
 from django.contrib.auth import get_user_model
 from django.core import mail
+from django.core.cache import cache
 from rest_framework.test import APIClient
 
 
 @pytest.fixture(autouse=True)
 def reset_mail_outbox():
     mail.outbox = []
+
+
+@pytest.fixture(autouse=True)
+def reset_throttle_cache():
+    cache.clear()
 
 
 @pytest.fixture

@@ -35,11 +35,33 @@ class TestLoginOTPRequest:
         otp = OTPCode.objects.get(purpose=OTPCode.Purpose.LOGIN)
         assert otp.code in mail.outbox[0].body
 
-    @override_settings(BODEPONTOIO=OTP_STRATEGY)
-    def test_anti_enumeration_unknown_email(self, api_client):
+    @override_settings(BODEPONTOIO={**OTP_STRATEGY, "LOGIN_AUTO_SIGNUP": True})
+    def test_unknown_email_creates_user_and_sends_otp(self, api_client):
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
         response = api_client.post("/auth/login/", {"email": "nobody@example.com"})
         assert response.status_code == 200
+        assert User.objects.filter(email="nobody@example.com").exists()
+        assert len(mail.outbox) == 1
+        assert "nobody@example.com" in mail.outbox[0].to
+
+    @override_settings(BODEPONTOIO={**OTP_STRATEGY, "LOGIN_AUTO_SIGNUP": False})
+    def test_auto_signup_disabled_unknown_email_no_user_no_email(self, api_client):
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        response = api_client.post("/auth/login/", {"email": "nobody@example.com"})
+        assert response.status_code == 200
+        assert not User.objects.filter(email="nobody@example.com").exists()
         assert len(mail.outbox) == 0
+
+    @override_settings(BODEPONTOIO={**OTP_STRATEGY, "LOGIN_AUTO_SIGNUP": False})
+    def test_auto_signup_disabled_known_email_still_sends_otp(self, api_client, create_user):
+        create_user(email="user@example.com")
+        response = api_client.post("/auth/login/", {"email": "user@example.com"})
+        assert response.status_code == 200
+        assert len(mail.outbox) == 1
 
     @override_settings(BODEPONTOIO=OTP_STRATEGY)
     def test_anti_enumeration_inactive_user(self, api_client, create_user):
@@ -49,6 +71,60 @@ class TestLoginOTPRequest:
         response = api_client.post("/auth/login/", {"email": "inactive@example.com"})
         assert response.status_code == 200
         assert len(mail.outbox) == 0
+
+
+@pytest.mark.django_db
+class TestLoginOTPResend:
+    """POST login/resend/ reissues a fresh OTP and invalidates the prior one."""
+
+    @override_settings(BODEPONTOIO=OTP_STRATEGY)
+    def test_resend_invalidates_prior_otp_and_sends_new(self, api_client, create_user):
+        user = create_user(email="user@example.com")
+        prior = generate_otp(user, OTPCode.Purpose.LOGIN)
+        response = api_client.post("/auth/login/resend/", {"email": "user@example.com"})
+        assert response.status_code == 200
+        assert "código" in response.data
+        prior.refresh_from_db()
+        assert prior.is_used is True
+        fresh = OTPCode.objects.filter(
+            user=user, purpose=OTPCode.Purpose.LOGIN, is_used=False
+        ).latest("created")
+        assert fresh.pk != prior.pk
+        assert fresh.code in mail.outbox[-1].body
+
+    @override_settings(BODEPONTOIO=OTP_STRATEGY)
+    def test_resend_unknown_email_no_user_no_email(self, api_client):
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        response = api_client.post("/auth/login/resend/", {"email": "nobody@example.com"})
+        assert response.status_code == 200
+        assert not User.objects.filter(email="nobody@example.com").exists()
+        assert len(mail.outbox) == 0
+
+    @override_settings(BODEPONTOIO={**OTP_STRATEGY, "LOGIN_AUTO_SIGNUP": True})
+    def test_resend_does_not_auto_signup(self, api_client):
+        from django.contrib.auth import get_user_model
+
+        User = get_user_model()
+        response = api_client.post("/auth/login/resend/", {"email": "nobody@example.com"})
+        assert response.status_code == 200
+        assert not User.objects.filter(email="nobody@example.com").exists()
+        assert len(mail.outbox) == 0
+
+    @override_settings(BODEPONTOIO=OTP_STRATEGY)
+    def test_resend_inactive_user_no_email(self, api_client, create_user):
+        user = create_user(email="inactive@example.com")
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+        response = api_client.post("/auth/login/resend/", {"email": "inactive@example.com"})
+        assert response.status_code == 200
+        assert len(mail.outbox) == 0
+
+    def test_resend_returns_404_when_strategy_is_password(self, api_client, create_user):
+        create_user(email="user@example.com")
+        response = api_client.post("/auth/login/resend/", {"email": "user@example.com"})
+        assert response.status_code == 404
 
 
 @pytest.mark.django_db
@@ -66,6 +142,15 @@ class TestLoginOTPConfirm:
         assert response.status_code == 200
         assert "access" in response.data
         assert "refresh" in response.data
+
+    @override_settings(BODEPONTOIO=OTP_STRATEGY)
+    def test_creates_login_record(self, api_client, create_user):
+        from bodepontoio.models import LoginRecord
+
+        user = create_user(email="user@example.com", is_email_verified=True)
+        otp = generate_otp(user, OTPCode.Purpose.LOGIN)
+        api_client.post("/auth/login/otp/confirm/", {"email": user.email, "code": otp.code})
+        assert LoginRecord.objects.filter(user=user).count() == 1
 
     @override_settings(BODEPONTOIO=OTP_STRATEGY)
     def test_auto_verifies_email(self, api_client, create_user):

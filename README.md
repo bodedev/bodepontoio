@@ -7,7 +7,7 @@ Toolbox da Bode.io para projetos em Django — JWT authentication, utility model
 - JWT authentication via `djangorestframework-simplejwt`
 - DRF endpoints: login, logout, register, password change, password reset request/confirm, e-mail confirmation and Google social login
 - OTP strategy for email confirmation and password reset (configurable — magic link is the default)
-- Passwordless login via email OTP (opt-in)
+- Passwordless login via email OTP or magic link (opt-in)
 - Abstract base models: `BaseModel` (timestamps) and `LogicDeletable` (soft deletion)
 - Built-in models: `UserAuth`, `Pais`, `LoginRecord`, `ConsultaCEP`, `OptimizedImageWithTinyPNG`
 - CEP lookup service with ViaCEP / AwesomeAPI fallback and database caching
@@ -64,6 +64,7 @@ SIMPLE_JWT = {
 BODEPONTOIO = {
     "FRONTEND_URL": "https://app.example.com",           # default: "http://localhost:3000"
     "PASSWORD_RESET_URL_PATH": "/reset/{uid}/{token}/",  # default: "/reset-password/{uid}/{token}/"
+    "LOGIN_MAGIC_LINK_URL_PATH": "/auth/magic/{uid}/{token}/",  # default: "/login/magic/{uid}/{token}/"
     "GOOGLE_CLIENT_ID": "your-client-id.apps.googleusercontent.com",  # required for Google login
 
     # OTP strategies (default: "magic_link" — backward compatible)
@@ -76,7 +77,8 @@ BODEPONTOIO = {
     "OTP_MAX_ATTEMPTS": 5,     # wrong attempts before the code is burned
 
     # Login strategy (default: "password")
-    "LOGIN_STRATEGY": "otp",  # "password" or "otp"
+    "LOGIN_STRATEGY": "otp",  # "password", "otp" or "magic_link"
+    "LOGIN_AUTO_SIGNUP": True,  # default: False — see Passwordless Login
 }
 ```
 
@@ -93,8 +95,10 @@ python manage.py migrate
 
 | Method | URL | Permission | Description |
 |--------|-----|------------|-------------|
-| POST | `login/` | Public | Obtain tokens (password) or request OTP code (strategy-dependent) |
+| POST | `login/` | Public | Obtain tokens (password), request OTP code, or send magic link (strategy-dependent) |
 | POST | `login/otp/confirm/` | Public | Exchange OTP code for tokens ¹ |
+| POST | `login/magic/confirm/` | Public | Exchange magic link uid + token for tokens ³ |
+| POST | `login/resend/` | Public | Re-send OTP code or magic link ⁴ |
 | POST | `token/refresh/` | Public | Refresh access token |
 | POST | `logout/` | Authenticated | Blacklist refresh token |
 | POST | `register/` | Public | Create account, sends confirmation email |
@@ -108,7 +112,9 @@ python manage.py migrate
 | POST | `social/google/` | Public | Login or register via Google ID token |
 
 ¹ Returns 404 unless `LOGIN_STRATEGY = "otp"`. `login/` always exists but its behaviour changes with the strategy.  
-² Returns 404 unless the matching strategy is set to `"otp"`.
+² Returns 404 unless the matching strategy is set to `"otp"`.  
+³ Returns 404 unless `LOGIN_STRATEGY = "magic_link"`.  
+⁴ Returns 404 unless `LOGIN_STRATEGY` is `"otp"` or `"magic_link"`.
 
 ## Login
 
@@ -224,11 +230,11 @@ OTP templates receive `{{ otp_code }}` and `{{ expiry_minutes }}` instead of a U
 
 ## Passwordless Login
 
-Users can log in with just their email address — no password required. Enable it in settings:
+Users can log in with just their email address — no password required. Two delivery strategies are available:
 
 ```python
 BODEPONTOIO = {
-    "LOGIN_STRATEGY": "otp",  # "password" (default) or "otp"
+    "LOGIN_STRATEGY": "otp",         # "password" (default), "otp", or "magic_link"
 }
 ```
 
@@ -240,24 +246,106 @@ BODEPONTOIO = {
 |----------|-----------------------|---------|
 | `"password"` (default) | `{"login": "...", "password": "..."}` | `{access, refresh}` tokens |
 | `"otp"` | `{"email": "..."}` | 200 message, sends OTP code by email |
+| `"magic_link"` | `{"email": "..."}` | 200 message, sends a signed login link by email |
 
-When strategy is `"otp"`, the user then completes login with:
+The user then completes login with:
 
-`POST login/otp/confirm/` with `{"email": "...", "code": "..."}` → returns `{access, refresh}`
+- `POST login/otp/confirm/` with `{"email": "...", "code": "..."}` → returns `{access, refresh}` (OTP strategy)
+- `POST login/magic/confirm/` with `{"uid": "...", "token": "..."}` → returns `{access, refresh}` (magic link strategy)
 
-`login/otp/confirm/` returns 404 when `LOGIN_STRATEGY` is `"password"`.
+Each confirm endpoint returns 404 when its matching strategy is not active.
 
-Anti-enumeration: `login/` in OTP mode always returns 200, even for unknown or inactive addresses.
+### Signup on first login
 
-A successful OTP login automatically sets `is_email_verified = True` if the user's email was not yet confirmed — possession of the inbox is sufficient proof.
+When `LOGIN_STRATEGY` is `"otp"` or `"magic_link"` and `LOGIN_AUTO_SIGNUP` is `True`, `POST login/` for an unknown email **creates the account on the fly** (with an unusable password) and sends the code/link to the new address. The same endpoint doubles as registration — no separate signup step is required.
 
-### Email template
+If the user model has a `username` field, a unique username is auto-generated from the email's local part.
 
-| Template | Description |
-|----------|-------------|
-| `bodepontoio/login_otp.html` | Login OTP code email |
+`LOGIN_AUTO_SIGNUP` defaults to `False` so that `login/` only mails known accounts. Enable it explicitly to opt into the login-doubles-as-signup flow:
 
-Context variables: `{{ user }}`, `{{ otp_code }}`, `{{ expiry_minutes }}`, `{{ brand_color }}`.
+```python
+BODEPONTOIO = {
+    "LOGIN_AUTO_SIGNUP": True,  # default: False
+}
+```
+
+`login/` is throttled out of the box by IP and by email to protect against abuse (especially relevant when auto-signup is enabled, since it can otherwise be used to mass-create user rows). Defaults are `20/hour` per IP and `10/hour` per email; tune or disable via:
+
+```python
+BODEPONTOIO = {
+    "LOGIN_THROTTLE_IP_RATE": "20/hour",     # set to None to disable
+    "LOGIN_THROTTLE_EMAIL_RATE": "10/hour",  # set to None to disable
+}
+```
+
+> ⚠️ **The IP throttle requires `NUM_PROXIES` to be configured.** DRF derives the client
+> IP from `X-Forwarded-For`, which the client controls. Unless you tell DRF how many
+> trusted proxies sit in front of the app, an attacker can rotate that header and get a
+> fresh throttle bucket per request, bypassing `LOGIN_THROTTLE_IP_RATE` entirely. Set it
+> to match your deployment:
+>
+> ```python
+> REST_FRAMEWORK = {
+>     "NUM_PROXIES": 1,  # number of trusted proxies (nginx, LB, CDN…); use 0 if none
+> }
+> ```
+>
+> If you don't know the proxy depth, `0` is the safe default (uses the unspoofable
+> `REMOTE_ADDR`). The per-email throttle is unaffected — it keys on the request body.
+
+### Post-login navigation (`next`)
+
+The magic-link request accepts an optional `next` field — a relative path the frontend should navigate to after exchanging the link for tokens:
+
+```http
+POST login/
+{"email": "user@example.com", "next": "/dashboard"}
+```
+
+The backend appends `?next=<url-encoded>` to the link in the email. The frontend route at `/login/magic/<uid>/<token>/` should read `next` from `location.search`, POST `{uid, token}` to `login/magic/confirm/`, store the JWT, then navigate to the validated `next`.
+
+`next` must be a relative path starting with `/`. Absolute URLs (`https://...`, `//evil.com`), scheme-prefixed values (`javascript:`), and backslash-prefixed values are rejected with HTTP 400 to prevent open-redirect attacks. The field survives cross-device flows (request on phone, click on laptop) because the destination travels inside the link itself.
+
+### Resend
+
+`POST login/resend/` reissues the OTP code or magic link for an existing account. Shape mirrors `login/` (`{"email": "...", "next": "..."}`) and the response is always 200 to avoid leaking which addresses are registered.
+
+```http
+POST login/resend/
+{"email": "user@example.com"}
+```
+
+Notes:
+
+- Resend **never auto-creates** an account, even when `LOGIN_AUTO_SIGNUP=True`. Unknown emails silently no-op.
+- Returns 404 when `LOGIN_STRATEGY = "password"`.
+- Throttle counters are shared with `POST login/` (`LOGIN_THROTTLE_IP_RATE`, `LOGIN_THROTTLE_EMAIL_RATE`), so alternating endpoints does not reset the budget.
+- For OTP, the new code invalidates any prior unused code for that user (the prior one stops working immediately).
+- For magic links, the previously emailed link remains usable until the next successful confirm (which updates `last_login` and breaks every outstanding token at once).
+
+### Single-use magic link
+
+A magic link is invalidated as soon as it is used: the confirm view updates `last_login`, which is part of the token's hash, so the same uid + token pair cannot be replayed.
+
+### Auto-verify
+
+A successful OTP or magic-link login automatically sets `is_email_verified = True` if the user's email was not yet confirmed — possession of the inbox is sufficient proof.
+
+### Inactive users
+
+`login/` always returns 200 even for inactive addresses, but no email is sent. The confirm endpoints reject inactive users with 401.
+
+### Email templates
+
+| Template | Strategy | Description |
+|----------|----------|-------------|
+| `bodepontoio/login_otp.html` | `otp` | Login OTP code email |
+| `bodepontoio/login_magic_link.html` | `magic_link` | Login magic link email |
+
+Context variables:
+
+- `login_otp.html` — `{{ user }}`, `{{ otp_code }}`, `{{ expiry_minutes }}`, `{{ brand_color }}`
+- `login_magic_link.html` — `{{ user }}`, `{{ login_url }}`, `{{ brand_color }}`
 
 ---
 

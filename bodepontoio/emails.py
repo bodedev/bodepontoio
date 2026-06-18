@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 from django.conf import settings
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
@@ -5,7 +7,7 @@ from django.template.loader import render_to_string
 from .conf import bodepontoio_settings
 from .models import OTPCode
 from .otp import generate_otp
-from .tokens import make_confirmation_token, make_reset_token, make_uid
+from .tokens import make_confirmation_token, make_login_token, make_reset_token, make_uid
 
 
 def send_password_reset_email(user):
@@ -89,6 +91,44 @@ def _send_email_confirmation_magic_link(user, request):
     send_mail(
         subject="Confirme seu endereço de e-mail",
         message=f"Clique no link abaixo para confirmar seu endereço de e-mail:\n\n{confirm_url}",
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+        html_message=html_message,
+        fail_silently=False,
+    )
+
+
+def send_login_email(user, next_path=""):
+    if bodepontoio_settings.LOGIN_STRATEGY == "magic_link":
+        _send_login_magic_link(user, next_path=next_path)
+    else:
+        send_login_otp_email(user)
+
+
+def _send_login_magic_link(user, next_path=""):
+    uid = make_uid(user)
+    token = make_login_token(user)
+
+    login_url = (
+        bodepontoio_settings.FRONTEND_URL
+        + bodepontoio_settings.LOGIN_MAGIC_LINK_URL_PATH.format(uid=uid, token=token)
+    )
+    if next_path:
+        login_url += f"?next={quote(next_path, safe='/')}"
+
+    expiry_hours = max(1, settings.PASSWORD_RESET_TIMEOUT // 3600)
+
+    context = {
+        "user": user,
+        "login_url": login_url,
+        "expiry_hours": expiry_hours,
+        "brand_color": bodepontoio_settings.EMAIL_BRAND_COLOR,
+    }
+    html_message = render_to_string("bodepontoio/login_magic_link.html", context)
+
+    send_mail(
+        subject="Seu link de acesso",
+        message=f"Clique no link abaixo para acessar sua conta:\n\n{login_url}",
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
         html_message=html_message,

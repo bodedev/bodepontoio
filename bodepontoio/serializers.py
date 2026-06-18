@@ -1,5 +1,6 @@
 from django.contrib.auth import authenticate, get_user_model
 from django.core.exceptions import ImproperlyConfigured
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.module_loading import import_string
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
@@ -9,7 +10,8 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .conf import bodepontoio_settings
-from .tokens import check_confirmation_token, check_reset_token, decode_uid
+from .tokens import check_confirmation_token, check_login_token, check_reset_token, decode_uid
+from .users import get_or_create_user_by_email, has_username_field, unique_username_for_email
 
 User = get_user_model()
 
@@ -53,14 +55,18 @@ class LoginSerializer(serializers.Serializer):
         try:
             user_obj = User.objects.get(email=login)
         except User.DoesNotExist:
-            try:
-                user_obj = User.objects.get(username=login)
-            except User.DoesNotExist:
+            user_obj = None
+            if has_username_field():
+                try:
+                    user_obj = User.objects.get(username=login)
+                except User.DoesNotExist:
+                    user_obj = None
+            if user_obj is None:
                 raise serializers.ValidationError("Credenciais inválidas.") from None
 
         user = authenticate(
             request=self.context.get("request"),
-            username=user_obj.username,
+            username=getattr(user_obj, User.USERNAME_FIELD),
             password=attrs["password"],
         )
 
@@ -110,13 +116,19 @@ class LogoutSerializer(serializers.Serializer):
 
 
 class RegisterSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(required=False)
     email = serializers.EmailField(required=True)
     password = serializers.CharField(write_only=True, min_length=8)
 
     class Meta:
         model = User
-        fields = ("username", "email", "password", "first_name", "last_name")
+        fields: tuple[str, ...] = ("email", "password", "first_name", "last_name")
+        if has_username_field():
+            fields = ("username",) + fields
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if has_username_field() and "username" in self.fields:
+            self.fields["username"].required = False
 
     def validate_username(self, value):
         if User.objects.filter(username=value).exists():
@@ -128,18 +140,9 @@ class RegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Já existe um usuário com este e-mail.")
         return value
 
-    def _unique_username(self, base: str) -> str:
-        username = base
-        suffix = 1
-        while User.objects.filter(username=username).exists():
-            username = f"{base}{suffix}"
-            suffix += 1
-        return username
-
     def create(self, validated_data):
-        if not validated_data.get("username"):
-            base = validated_data["email"].split("@")[0]
-            validated_data["username"] = self._unique_username(base)
+        if has_username_field() and not validated_data.get("username"):
+            validated_data["username"] = unique_username_for_email(validated_data["email"])
 
         return User.objects.create_user(**validated_data)
 
@@ -163,7 +166,7 @@ class EmailConfirmSerializer(serializers.Serializer):
         try:
             pk = decode_uid(attrs["uid"])
             user = User.objects.get(pk=pk)
-        except (User.DoesNotExist, ValueError, TypeError, OverflowError, Exception):
+        except (User.DoesNotExist, ValueError, TypeError, OverflowError):
             raise serializers.ValidationError(
                 "Link de confirmação inválido ou expirado."
             ) from None
@@ -203,18 +206,11 @@ class GoogleLoginSerializer(serializers.Serializer):
         email = id_info["email"]
         first_name = id_info.get("given_name", "")
         last_name = id_info.get("family_name", "")
-        user, created = User.objects.get_or_create(
-            username=email,
-            defaults={
-                "email": email,
-                "first_name": first_name,
-                "last_name": last_name,
-            },
+        user, _created = get_or_create_user_by_email(
+            email,
+            first_name=first_name,
+            last_name=last_name,
         )
-
-        if created:
-            user.set_unusable_password()
-            user.save(update_fields=["password"])
 
         profile, _ = user.auth.__class__.objects.get_or_create(user=user)
         profile.is_email_verified = True
@@ -231,12 +227,50 @@ class GoogleLoginSerializer(serializers.Serializer):
 
 
 class PasswordlessLoginRequestSerializer(serializers.Serializer):
+    # `next` is only consumed by the magic_link strategy; ignored for OTP.
     email = serializers.EmailField()
+    next = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+
+    def validate_next(self, value):
+        if not value:
+            return ""
+        error = serializers.ValidationError(
+            "O destino deve ser um caminho relativo iniciado por '/'."
+        )
+        # Browsers strip tab/CR/LF anywhere in a URL before navigating, so
+        # "/\t/evil.com" would collapse to the protocol-relative "//evil.com".
+        # url_has_allowed_host_and_scheme does not catch internal control
+        # characters, so reject them explicitly first.
+        if any(c in value for c in "\t\r\n"):
+            raise error
+        if (
+            not value.startswith("/")
+            or value.startswith("//")
+            or not url_has_allowed_host_and_scheme(value, allowed_hosts=None)
+        ):
+            raise error
+        return value
 
 
 class PasswordlessLoginConfirmSerializer(serializers.Serializer):
     email = serializers.EmailField()
     code = serializers.CharField(max_length=8)
+
+
+class MagicLinkLoginConfirmSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+
+    def validate(self, attrs):
+        try:
+            pk = decode_uid(attrs["uid"])
+            user = User.objects.get(pk=pk)
+        except (User.DoesNotExist, ValueError, TypeError, OverflowError):
+            raise serializers.ValidationError("Link inválido ou expirado.") from None
+        if not check_login_token(user, attrs["token"]):
+            raise serializers.ValidationError("Link inválido ou expirado.")
+        attrs["user"] = user
+        return attrs
 
 
 class OTPEmailConfirmSerializer(serializers.Serializer):
@@ -259,7 +293,7 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         try:
             pk = decode_uid(attrs["uid"])
             user = User.objects.get(pk=pk)
-        except (User.DoesNotExist, ValueError, TypeError, OverflowError, Exception):
+        except (User.DoesNotExist, ValueError, TypeError, OverflowError):
             raise serializers.ValidationError("UID inválido.") from None
         if not check_reset_token(user, attrs["token"]):
             raise serializers.ValidationError("Token inválido ou expirado.")

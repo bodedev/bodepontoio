@@ -5,6 +5,7 @@ DEFAULTS = {
     "FRONTEND_URL": "http://localhost:3000",
     "PASSWORD_RESET_URL_PATH": "/reset-password/{uid}/{token}/",
     "EMAIL_CONFIRM_URL_PATH": "/confirm-email/{uid}/{token}/",
+    "LOGIN_MAGIC_LINK_URL_PATH": "/login/magic/{uid}/{token}/",
     "GOOGLE_CLIENT_ID": None,
     "API_DEBUG_LOGGER_ENABLED": False,
     "API_DEBUG_LOGGER_PATH_PREFIX": "/api/",
@@ -16,6 +17,9 @@ DEFAULTS = {
     "OTP_EXPIRY_SECONDS": 900,
     "OTP_MAX_ATTEMPTS": 5,
     "LOGIN_STRATEGY": "password",
+    "LOGIN_AUTO_SIGNUP": False,
+    "LOGIN_THROTTLE_IP_RATE": "20/hour",
+    "LOGIN_THROTTLE_EMAIL_RATE": "10/hour",
     "USER_SERIALIZER": "bodepontoio.serializers.DefaultUserSerializer",
 }
 

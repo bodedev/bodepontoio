@@ -1,4 +1,6 @@
 from django.contrib.auth import get_user_model
+from django.contrib.auth.signals import user_logged_in
+from django.utils import timezone
 from rest_framework import permissions, status
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.response import Response
@@ -7,7 +9,11 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .conf import bodepontoio_settings
-from .emails import send_email_confirmation_email, send_login_otp_email, send_password_reset_email
+from .emails import (
+    send_email_confirmation_email,
+    send_login_email,
+    send_password_reset_email,
+)
 from .models import OTPCode
 from .otp import verify_otp
 from .serializers import (
@@ -15,6 +21,7 @@ from .serializers import (
     GoogleLoginSerializer,
     LoginSerializer,
     LogoutSerializer,
+    MagicLinkLoginConfirmSerializer,
     OTPEmailConfirmSerializer,
     OTPPasswordResetConfirmSerializer,
     PasswordChangeSerializer,
@@ -26,8 +33,17 @@ from .serializers import (
     ResendEmailConfirmationSerializer,
     TokenRefreshSerializer,
 )
+from .throttles import LoginEmailThrottle, LoginIPThrottle
+from .users import get_or_create_user_by_email
 
 User = get_user_model()
+
+
+def _record_login(request, user):
+    """Fire the ``user_logged_in`` signal so LoginRecord (and Django's
+    update_last_login) run for token-based logins, which never call
+    ``django.contrib.auth.login()``."""
+    user_logged_in.send(sender=user.__class__, request=request, user=user)
 
 
 class PasswordlessLoginConfirmView(APIView):
@@ -56,28 +72,93 @@ class PasswordlessLoginConfirmView(APIView):
             user.auth.is_email_verified = True
             user.auth.save(update_fields=["is_email_verified"])
 
+        user.last_login = timezone.now()
+        user.save(update_fields=["last_login"])
+
+        _record_login(request, user)
+        from .serializers import _get_tokens
+        return Response(_get_tokens(user))
+
+
+class MagicLinkLoginConfirmView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        if bodepontoio_settings.LOGIN_STRATEGY != "magic_link":
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        serializer = MagicLinkLoginConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data["user"]
+
+        if not user.is_active:
+            raise AuthenticationFailed("Conta de usuário desativada.")
+
+        if not user.auth.is_email_verified:
+            user.auth.is_email_verified = True
+            user.auth.save(update_fields=["is_email_verified"])
+
+        # Single-use: updating last_login invalidates the token hash, so the
+        # same link cannot be replayed. Do not remove this without replacing
+        # the single-use guarantee.
+        user.last_login = timezone.now()
+        user.save(update_fields=["last_login"])
+
+        _record_login(request, user)
         from .serializers import _get_tokens
         return Response(_get_tokens(user))
 
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [LoginIPThrottle, LoginEmailThrottle]
 
     def post(self, request):
-        if bodepontoio_settings.LOGIN_STRATEGY == "otp":
+        if bodepontoio_settings.LOGIN_STRATEGY in ("otp", "magic_link"):
             serializer = PasswordlessLoginRequestSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            try:
-                user = User.objects.get(email=serializer.validated_data["email"])
-                if user.is_active:
-                    send_login_otp_email(user)
-            except User.DoesNotExist:
-                pass  # Anti-enumeration: always return 200
-            return Response("Se esse e-mail existir, um código de acesso foi enviado.")
+            email = serializer.validated_data["email"]
+            next_path = serializer.validated_data.get("next", "")
+            if bodepontoio_settings.LOGIN_AUTO_SIGNUP:
+                user, _created = get_or_create_user_by_email(email)
+            else:
+                user = User.objects.filter(email=email).first()
+            if user is not None and user.is_active:
+                send_login_email(user, next_path=next_path)
+            if bodepontoio_settings.LOGIN_STRATEGY == "magic_link":
+                msg = "Um link de acesso foi enviado para o seu e-mail."
+            else:
+                msg = "Um código de acesso foi enviado para o seu e-mail."
+            return Response(msg)
 
         serializer = LoginSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
+        _record_login(request, serializer.validated_data["user"])
         return Response(serializer.data)
+
+
+class LoginResendView(APIView):
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [LoginIPThrottle, LoginEmailThrottle]
+
+    def post(self, request):
+        if bodepontoio_settings.LOGIN_STRATEGY not in ("otp", "magic_link"):
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        serializer = PasswordlessLoginRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"]
+        next_path = serializer.validated_data.get("next", "")
+
+        user = User.objects.filter(email=email).first()
+        if user is not None and user.is_active:
+            send_login_email(user, next_path=next_path)
+
+        if bodepontoio_settings.LOGIN_STRATEGY == "magic_link":
+            msg = "Se esse e-mail existir, reenviamos um link de acesso."
+        else:
+            msg = "Se esse e-mail existir, reenviamos um código de acesso."
+        return Response(msg)
 
 
 class GoogleLoginView(APIView):
@@ -86,6 +167,7 @@ class GoogleLoginView(APIView):
     def post(self, request):
         serializer = GoogleLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        _record_login(request, serializer.validated_data["user"])
         return Response(serializer.data)
 
 
@@ -125,6 +207,7 @@ class RegisterView(APIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         send_email_confirmation_email(user, request)
+
         return Response(
             "Cadastro realizado com sucesso. Verifique seu e-mail para confirmar sua conta.",
             status=status.HTTP_201_CREATED,
