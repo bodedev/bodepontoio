@@ -126,6 +126,30 @@ class LoginView(APIView):
         return Response(serializer.data)
 
 
+class LoginResendView(APIView):
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [LoginIPThrottle, LoginEmailThrottle]
+
+    def post(self, request):
+        if bodepontoio_settings.LOGIN_STRATEGY not in ("otp", "magic_link"):
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+        serializer = PasswordlessLoginRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"]
+        next_path = serializer.validated_data.get("next", "")
+
+        user = User.objects.filter(email=email).first()
+        if user is not None and user.is_active:
+            send_login_email(user, next_path=next_path)
+
+        if bodepontoio_settings.LOGIN_STRATEGY == "magic_link":
+            msg = "Se esse e-mail existir, reenviamos um link de acesso."
+        else:
+            msg = "Se esse e-mail existir, reenviamos um código de acesso."
+        return Response(msg)
+
+
 class GoogleLoginView(APIView):
     permission_classes = [permissions.AllowAny]
 

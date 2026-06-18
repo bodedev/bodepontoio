@@ -98,6 +98,7 @@ python manage.py migrate
 | POST | `login/` | Public | Obtain tokens (password), request OTP code, or send magic link (strategy-dependent) |
 | POST | `login/otp/confirm/` | Public | Exchange OTP code for tokens ¹ |
 | POST | `login/magic/confirm/` | Public | Exchange magic link uid + token for tokens ³ |
+| POST | `login/resend/` | Public | Re-send OTP code or magic link ⁴ |
 | POST | `token/refresh/` | Public | Refresh access token |
 | POST | `logout/` | Authenticated | Blacklist refresh token |
 | POST | `register/` | Public | Create account, sends confirmation email |
@@ -112,7 +113,8 @@ python manage.py migrate
 
 ¹ Returns 404 unless `LOGIN_STRATEGY = "otp"`. `login/` always exists but its behaviour changes with the strategy.  
 ² Returns 404 unless the matching strategy is set to `"otp"`.  
-³ Returns 404 unless `LOGIN_STRATEGY = "magic_link"`.
+³ Returns 404 unless `LOGIN_STRATEGY = "magic_link"`.  
+⁴ Returns 404 unless `LOGIN_STRATEGY` is `"otp"` or `"magic_link"`.
 
 ## Login
 
@@ -288,6 +290,23 @@ POST login/
 The backend appends `?next=<url-encoded>` to the link in the email. The frontend route at `/login/magic/<uid>/<token>/` should read `next` from `location.search`, POST `{uid, token}` to `login/magic/confirm/`, store the JWT, then navigate to the validated `next`.
 
 `next` must be a relative path starting with `/`. Absolute URLs (`https://...`, `//evil.com`), scheme-prefixed values (`javascript:`), and backslash-prefixed values are rejected with HTTP 400 to prevent open-redirect attacks. The field survives cross-device flows (request on phone, click on laptop) because the destination travels inside the link itself.
+
+### Resend
+
+`POST login/resend/` reissues the OTP code or magic link for an existing account. Shape mirrors `login/` (`{"email": "...", "next": "..."}`) and the response is always 200 to avoid leaking which addresses are registered.
+
+```http
+POST login/resend/
+{"email": "user@example.com"}
+```
+
+Notes:
+
+- Resend **never auto-creates** an account, even when `LOGIN_AUTO_SIGNUP=True`. Unknown emails silently no-op.
+- Returns 404 when `LOGIN_STRATEGY = "password"`.
+- Throttle counters are shared with `POST login/` (`LOGIN_THROTTLE_IP_RATE`, `LOGIN_THROTTLE_EMAIL_RATE`), so alternating endpoints does not reset the budget.
+- For OTP, the new code invalidates any prior unused code for that user (the prior one stops working immediately).
+- For magic links, the previously emailed link remains usable until the next successful confirm (which updates `last_login` and breaks every outstanding token at once).
 
 ### Single-use magic link
 

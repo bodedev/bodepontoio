@@ -137,6 +137,64 @@ class TestLoginMagicLinkRequest:
 
 
 @pytest.mark.django_db
+class TestLoginMagicLinkResend:
+    """POST login/resend/ reissues a fresh magic link without auto-signup."""
+
+    @override_settings(BODEPONTOIO=MAGIC_LINK_STRATEGY)
+    def test_resend_sends_new_link(self, api_client, create_user):
+        create_user(email="user@example.com")
+        response = api_client.post("/auth/login/resend/", {"email": "user@example.com"})
+        assert response.status_code == 200
+        assert "link" in response.data
+        assert len(mail.outbox) == 1
+        assert "/login/magic/" in mail.outbox[0].body
+
+    @override_settings(BODEPONTOIO=MAGIC_LINK_STRATEGY)
+    def test_resend_unknown_email_no_email(self, api_client):
+        response = api_client.post("/auth/login/resend/", {"email": "nobody@example.com"})
+        assert response.status_code == 200
+        assert len(mail.outbox) == 0
+
+    @override_settings(BODEPONTOIO={**MAGIC_LINK_STRATEGY, "LOGIN_AUTO_SIGNUP": True})
+    def test_resend_does_not_auto_signup(self, api_client):
+        User = get_user_model()
+        response = api_client.post("/auth/login/resend/", {"email": "nobody@example.com"})
+        assert response.status_code == 200
+        assert not User.objects.filter(email="nobody@example.com").exists()
+        assert len(mail.outbox) == 0
+
+    @override_settings(BODEPONTOIO=MAGIC_LINK_STRATEGY)
+    def test_resend_inactive_user_no_email(self, api_client, create_user):
+        user = create_user(email="inactive@example.com")
+        user.is_active = False
+        user.save(update_fields=["is_active"])
+        response = api_client.post("/auth/login/resend/", {"email": "inactive@example.com"})
+        assert response.status_code == 200
+        assert len(mail.outbox) == 0
+
+    def test_resend_returns_404_when_strategy_is_password(self, api_client, create_user):
+        create_user(email="user@example.com")
+        response = api_client.post("/auth/login/resend/", {"email": "user@example.com"})
+        assert response.status_code == 404
+
+    @override_settings(
+        BODEPONTOIO={
+            **MAGIC_LINK_STRATEGY,
+            "LOGIN_THROTTLE_IP_RATE": None,
+            "LOGIN_THROTTLE_EMAIL_RATE": "2/min",
+        }
+    )
+    def test_resend_shares_email_throttle_with_login(self, api_client, create_user):
+        create_user(email="user@example.com")
+        first = api_client.post("/auth/login/", {"email": "user@example.com"})
+        assert first.status_code == 200
+        second = api_client.post("/auth/login/resend/", {"email": "user@example.com"})
+        assert second.status_code == 200
+        third = api_client.post("/auth/login/resend/", {"email": "user@example.com"})
+        assert third.status_code == 429
+
+
+@pytest.mark.django_db
 class TestLoginMagicLinkConfirm:
     """POST login/magic/confirm/ exchanges a valid uid+token for JWT tokens."""
 
