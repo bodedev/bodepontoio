@@ -167,9 +167,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def validate_email(self, value):
-        _validate_email_domain_has_mx(value)
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("Já existe um usuário com este e-mail.")
+        _validate_email_domain_has_mx(value)
         return value
 
     def create(self, validated_data):
