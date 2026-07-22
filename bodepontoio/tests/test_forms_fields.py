@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock, patch
 
 import dns.exception
+import dns.resolver
 from django.forms import ValidationError
 from django.test import SimpleTestCase
 
@@ -12,37 +13,37 @@ class TestValidatingEmailField(SimpleTestCase):
     def setUp(self):
         self.field = ValidatingEmailField()
 
-    @patch('bodepontoio.utils.forms.fields.dns.resolver.resolve')
-    def test_valid_email_with_mx_record(self, mock_query):
-        mock_query.return_value = MagicMock()
+    @patch('bodepontoio.utils.email.mx.dns.resolver.Resolver')
+    def test_valid_email_with_mx_record(self, mock_resolver_cls):
+        mock_resolver_cls.return_value.resolve.return_value = MagicMock()
         result = self.field.clean("user@example.com")
         self.assertEqual(result, "user@example.com")
-        mock_query.assert_called_once_with("example.com", "MX")
+        mock_resolver_cls.return_value.resolve.assert_called_once_with("example.com", "MX")
 
-    @patch('bodepontoio.utils.forms.fields.dns.resolver.resolve')
-    def test_noanswer_raises_validation_error(self, mock_resolve):
-        mock_resolve.side_effect = dns.resolver.NoAnswer()
+    @patch('bodepontoio.utils.email.mx.dns.resolver.Resolver')
+    def test_noanswer_raises_validation_error(self, mock_resolver_cls):
+        mock_resolver_cls.return_value.resolve.side_effect = dns.resolver.NoAnswer()
         with self.assertRaises(ValidationError):
             self.field.clean("user@no-answer.com")
 
-    @patch('bodepontoio.utils.forms.fields.dns.resolver.resolve')
-    def test_invalid_domain_raises_validation_error(self, mock_query):
-        mock_query.side_effect = dns.exception.DNSException("Domain not found")
+    @patch('bodepontoio.utils.email.mx.dns.resolver.Resolver')
+    def test_nxdomain_raises_validation_error(self, mock_resolver_cls):
+        mock_resolver_cls.return_value.resolve.side_effect = dns.resolver.NXDOMAIN()
         with self.assertRaises(ValidationError) as context:
-            self.field.clean("user@invalid-domain-xyz.com")
+            self.field.clean("user@nonexistent-domain-xyz.com")
         self.assertEqual(str(context.exception.messages[0]), "Este e-mail não é válido!")
 
-    @patch('bodepontoio.utils.forms.fields.dns.resolver.resolve')
-    def test_dns_timeout_raises_validation_error(self, mock_query):
-        mock_query.side_effect = dns.exception.Timeout()
-        with self.assertRaises(ValidationError):
-            self.field.clean("user@slow-domain.com")
+    @patch('bodepontoio.utils.email.mx.dns.resolver.Resolver')
+    def test_dns_timeout_fails_open_no_validation_error(self, mock_resolver_cls):
+        mock_resolver_cls.return_value.resolve.side_effect = dns.exception.Timeout()
+        result = self.field.clean("user@slow-domain.com")
+        self.assertEqual(result, "user@slow-domain.com")
 
-    @patch('bodepontoio.utils.forms.fields.dns.resolver.resolve')
-    def test_dns_nxdomain_raises_validation_error(self, mock_query):
-        mock_query.side_effect = dns.exception.DNSException()
-        with self.assertRaises(ValidationError):
-            self.field.clean("user@nonexistent.com")
+    @patch('bodepontoio.utils.email.mx.dns.resolver.Resolver')
+    def test_generic_dns_exception_fails_open_no_validation_error(self, mock_resolver_cls):
+        mock_resolver_cls.return_value.resolve.side_effect = dns.exception.DNSException("no nameservers")
+        result = self.field.clean("user@unreachable-resolver.com")
+        self.assertEqual(result, "user@unreachable-resolver.com")
 
     def test_invalid_email_format_raises_validation_error(self):
         with self.assertRaises(ValidationError):
@@ -57,8 +58,8 @@ class TestValidatingEmailField(SimpleTestCase):
         with self.assertRaises(ValidationError):
             self.field.clean("")
 
-    @patch('bodepontoio.utils.forms.fields.dns.resolver.resolve')
-    def test_accepts_uppercase_email(self, mock_query):
-        mock_query.return_value = MagicMock()
+    @patch('bodepontoio.utils.email.mx.dns.resolver.Resolver')
+    def test_accepts_uppercase_email(self, mock_resolver_cls):
+        mock_resolver_cls.return_value.resolve.return_value = MagicMock()
         result = self.field.clean("USER@EXAMPLE.COM")
         self.assertEqual(result, "USER@EXAMPLE.COM")
