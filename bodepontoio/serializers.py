@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate, get_user_model
+from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.module_loading import import_string
@@ -12,8 +13,38 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .conf import bodepontoio_settings
 from .tokens import check_confirmation_token, check_login_token, check_reset_token, decode_uid
 from .users import get_or_create_user_by_email, has_username_field, unique_username_for_email
+from .utils.email.mx import domain_has_mx_record
 
 User = get_user_model()
+
+_MX_CHECK_CACHE_PREFIX = "bodepontoio:mx_check"
+_MX_CHECK_CACHE_TTL_SECONDS = 3600
+
+
+def _domain_has_mx_record(domain: str) -> bool:
+    cache_key = f"{_MX_CHECK_CACHE_PREFIX}:{domain.lower()}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    timeout = bodepontoio_settings.PASSWORDLESS_LOGIN_MX_CHECK_TIMEOUT_SECONDS
+    result = domain_has_mx_record(domain, timeout=timeout)
+    if result is None:
+        # Falha transitória de DNS: não bloqueia login/cadastro nem cacheia.
+        return True
+
+    cache.set(cache_key, result, _MX_CHECK_CACHE_TTL_SECONDS)
+    return result
+
+
+def _validate_email_domain_has_mx(value: str) -> None:
+    if not bodepontoio_settings.PASSWORDLESS_LOGIN_MX_CHECK_ENABLED:
+        return
+    domain = value.rsplit("@", 1)[-1]
+    if not _domain_has_mx_record(domain):
+        raise serializers.ValidationError(
+            "Este domínio de e-mail não existe ou não recebe e-mails."
+        )
 
 
 class DefaultUserSerializer(serializers.ModelSerializer):
@@ -136,6 +167,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def validate_email(self, value):
+        _validate_email_domain_has_mx(value)
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("Já existe um usuário com este e-mail.")
         return value
@@ -230,6 +262,10 @@ class PasswordlessLoginRequestSerializer(serializers.Serializer):
     # `next` is only consumed by the magic_link strategy; ignored for OTP.
     email = serializers.EmailField()
     next = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+
+    def validate_email(self, value):
+        _validate_email_domain_has_mx(value)
+        return value
 
     def validate_next(self, value):
         if not value:

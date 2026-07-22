@@ -21,6 +21,8 @@ DEFAULTS = {
     "LOGIN_THROTTLE_IP_RATE": "20/hour",
     "LOGIN_THROTTLE_EMAIL_RATE": "10/hour",
     "USER_SERIALIZER": "bodepontoio.serializers.DefaultUserSerializer",
+    "PASSWORDLESS_LOGIN_MX_CHECK_ENABLED": False,
+    "PASSWORDLESS_LOGIN_MX_CHECK_TIMEOUT_SECONDS": 2.0,
 }
 
 
