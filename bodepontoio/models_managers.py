@@ -13,7 +13,7 @@ class SemExcluidosManager(models.Manager):
         Funciona em código e nos templates.
         e.g.: instance.relatedmodel_set.com_excluidos
         """
-        return super().get_queryset().filter(**self.core_filters)
+        return super().get_queryset().filter(**getattr(self, "core_filters", {}))
 
     def soh_excluidos(self):
         """
@@ -22,7 +22,7 @@ class SemExcluidosManager(models.Manager):
         Funciona em código e nos templates.
         e.g.: instance.relatedmodel_set.soh_excluidos
         """
-        return super().get_queryset().filter(id=self.instance.id).filter(excluido=True)
+        return super().get_queryset().filter(**getattr(self, "core_filters", {})).filter(excluido=True)
 
 
 class ComExcluidosManager(models.Manager):
