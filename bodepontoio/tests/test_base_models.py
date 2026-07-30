@@ -91,3 +91,62 @@ class TestLogicDeletable:
         obj.delete()
         obj.refresh_from_db()
         assert obj.excluido_por is None
+
+    def test_com_excluidos_method_on_default_manager(self):
+        """
+        Regressão: Model.objects.com_excluidos() lançava AttributeError
+        ('core_filters' inexistente) porque `objects` não é um related
+        manager. Ver Sentry BODDIT-BACKEND-Q.
+        """
+        Post.objects.create(title="Visible")
+        hidden = Post.com_excluidos.create(title="Hidden")
+        hidden.delete()
+        titles = list(Post.objects.com_excluidos().values_list("title", flat=True))
+        assert "Visible" in titles
+        assert "Hidden" in titles
+
+    def test_com_excluidos_method_on_related_manager_uses_core_filters(self, create_user):
+        """
+        Confirma que com_excluidos() filtra pelo FK real (core_filters) e não
+        por coincidência de ids: cria um Post decoy cujo id colide com o do
+        owner mas que não pertence a ele, pra garantir que o teste falharia
+        se a filtragem estivesse errada.
+        """
+        owner = create_user(email="owner@example.com")
+        Post.objects.create(id=owner.id, title="Decoy")
+        mine = Post.objects.create(title="Mine")
+        mine.excluido_por = owner
+        mine.delete()
+        titles = list(owner.post_excluido_por.com_excluidos().values_list("title", flat=True))
+        assert titles == ["Mine"]
+        assert "Decoy" not in titles
+
+    def test_soh_excluidos_method_on_default_manager(self):
+        """
+        Regressão: mesmo padrão de bug do com_excluidos (Sentry BODDIT-BACKEND-Q),
+        Model.objects.soh_excluidos() lançava AttributeError ('instance' inexistente)
+        fora de um related manager.
+        """
+        Post.objects.create(title="Visible")
+        hidden = Post.com_excluidos.create(title="Hidden")
+        hidden.delete()
+        titles = list(Post.objects.soh_excluidos().values_list("title", flat=True))
+        assert titles == ["Hidden"]
+
+    def test_soh_excluidos_method_on_related_manager_uses_core_filters(self, create_user):
+        """
+        Regressão: soh_excluidos() usava `filter(id=self.instance.id)` — um
+        copy-paste que comparava o id do Post com o id do usuário pai, em vez
+        de `**self.core_filters` (o FK correto). O Post decoy tem o id igual
+        ao do owner e está excluído, mas não pertence a ele: só passa no
+        filtro antigo (buggy), nunca no correto.
+        """
+        owner = create_user(email="owner2@example.com")
+        decoy = Post.objects.create(id=owner.id, title="Decoy")
+        decoy.delete()
+        mine = Post.objects.create(title="Mine")
+        mine.excluido_por = owner
+        mine.delete()
+        titles = list(owner.post_excluido_por.soh_excluidos().values_list("title", flat=True))
+        assert titles == ["Mine"]
+        assert "Decoy" not in titles
