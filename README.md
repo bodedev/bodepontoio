@@ -18,6 +18,13 @@ Toolbox da Bode.io para projetos em Django — JWT authentication, utility model
 - Management commands: country import, TinyPNG image compression
 - Standardized success and error responses across all endpoints
 
+## Requirements
+
+- Python: 3.12, 3.13, 3.14, 3.15 (pre-release)
+- Django: 5.1, 5.2, 6.0
+
+These are the versions validated by CI (see `.github/workflows/ci.yml`). Django 4.2 (LTS) is no longer supported.
+
 ## Installation
 
 ```bash
