@@ -98,12 +98,9 @@ class MagicLinkLoginConfirmView(APIView):
             user.auth.is_email_verified = True
             user.auth.save(update_fields=["is_email_verified"])
 
-        # Single-use: updating last_login invalidates the token hash, so the
-        # same link cannot be replayed. Do not remove this without replacing
-        # the single-use guarantee.
-        user.last_login = timezone.now()
-        user.save(update_fields=["last_login"])
-
+        # Single-use comes from Django's update_last_login receiver, fired by
+        # _record_login below (last_login is part of the token hash). The reuse
+        # window opts out of it; see LoginTokenGenerator.
         _record_login(request, user)
         from .serializers import _get_tokens
         return Response(_get_tokens(user))
