@@ -7,7 +7,13 @@ from django.template.loader import render_to_string
 from .conf import bodepontoio_settings
 from .models import OTPCode
 from .otp import generate_otp
-from .tokens import make_confirmation_token, make_login_token, make_reset_token, make_uid
+from .tokens import (
+    login_token_ttl_seconds,
+    make_confirmation_token,
+    make_login_token,
+    make_reset_token,
+    make_uid,
+)
 
 
 def send_password_reset_email(user):
@@ -116,12 +122,15 @@ def _send_login_magic_link(user, next_path=""):
     if next_path:
         login_url += f"?next={quote(next_path, safe='/')}"
 
-    expiry_hours = max(1, settings.PASSWORD_RESET_TIMEOUT // 3600)
+    # A short reuse window reads better in minutes; the default 3-day ceiling in
+    # hours. The template picks whichever is non-zero.
+    ttl = login_token_ttl_seconds()
 
     context = {
         "user": user,
         "login_url": login_url,
-        "expiry_hours": expiry_hours,
+        "expiry_hours": ttl // 3600,
+        "expiry_minutes": max(1, ttl // 60),
         "brand_color": bodepontoio_settings.EMAIL_BRAND_COLOR,
     }
     html_message = render_to_string("bodepontoio/login_magic_link.html", context)

@@ -18,6 +18,7 @@ DEFAULTS = {
     "OTP_MAX_ATTEMPTS": 5,
     "LOGIN_STRATEGY": "password",
     "LOGIN_AUTO_SIGNUP": False,
+    "LOGIN_MAGIC_LINK_REUSE_WINDOW_SECONDS": 0,
     "LOGIN_THROTTLE_IP_RATE": "20/hour",
     "LOGIN_THROTTLE_EMAIL_RATE": "10/hour",
     "USER_SERIALIZER": "bodepontoio.serializers.DefaultUserSerializer",

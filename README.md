@@ -222,6 +222,46 @@ The magic-link endpoints remain registered but return 404 when the OTP strategy 
 | `OTP_EXPIRY_SECONDS` | `900` | Seconds until the code expires (15 minutes) |
 | `OTP_MAX_ATTEMPTS` | `5` | Wrong attempts before the code is burned |
 
+### Magic-link options
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `LOGIN_MAGIC_LINK_REUSE_WINDOW_SECONDS` | `0` (off) | Seconds the login link stays reusable. `0` keeps it single-use |
+
+The login link is single-use by default, because `last_login` is part of Django's
+token hash. That breaks logins in practice: whatever opens the URL before the
+user burns it (provider link scanners, mail-app webviews, prerender), and since
+`last_login` is shared by every outstanding token, it kills their other pending
+links too, so re-sending does not help.
+
+Setting a window drops `last_login` from the hash and keeps the link valid, any
+number of times, until the window closes:
+
+```python
+BODEPONTOIO = {
+    "LOGIN_MAGIC_LINK_REUSE_WINDOW_SECONDS": 900,  # 15 minutes
+}
+```
+
+The tradeoff is a replay window instead of a used-once guarantee, so keep it
+short. It is capped by `PASSWORD_RESET_TIMEOUT` (Django's default is 3 days),
+which stays the ceiling in either mode.
+
+**Upgrading.** With no window the hash is Django's, so links issued by earlier
+versions keep working. Turning a window on invalidates pending links for users
+who have logged in before; users whose `last_login` is still `NULL` are
+unaffected, since Django leaves that part of the hash empty for them.
+
+**Revoking.** Password and email changes invalidate pending links in either mode,
+since both stay in the hash. That is the only early revocation a window leaves
+you: `user.set_unusable_password()` picks a new random value on every call, so it
+works even on a passwordless deployment.
+
+**Single-use relies on a signal receiver.** The confirm view does not write
+`last_login` itself; Django's `update_last_login`, connected to `user_logged_in`,
+does. Disconnecting that receiver removes single-use silently, with no window
+configured and no error.
+
 ### OTP email templates
 
 | Template | Strategy | Flow |

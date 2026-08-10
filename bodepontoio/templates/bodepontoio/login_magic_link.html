@@ -80,7 +80,8 @@
 
                     <p style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
                               font-size:13px;color:#9ca3af;margin:20px 0 0;">
-                      Este link é de uso único e expira em {{ expiry_hours }} horas.
+                      Este link expira em {% if expiry_hours %}{{ expiry_hours }} hora{{ expiry_hours|pluralize }}{% else %}{{ expiry_minutes }} minuto{{ expiry_minutes|pluralize }}{% endif %}.
+                      Se ele já tiver vencido, peça um novo na tela de acesso.
                     </p>
 
                   </td>

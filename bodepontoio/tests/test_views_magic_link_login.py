@@ -1,11 +1,22 @@
+from datetime import datetime, timedelta
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.core import mail
 from django.test import override_settings
 
-from bodepontoio.tokens import make_login_token, make_uid
+from bodepontoio.tokens import (
+    login_token_generator,
+    login_token_reuse_window,
+    make_login_token,
+    make_uid,
+)
 
 MAGIC_LINK_STRATEGY = {"LOGIN_STRATEGY": "magic_link"}
+REUSE_STRATEGY = {
+    **MAGIC_LINK_STRATEGY,
+    "LOGIN_MAGIC_LINK_REUSE_WINDOW_SECONDS": 900,
+}
 
 
 @pytest.mark.django_db
@@ -27,6 +38,22 @@ class TestLoginMagicLinkRequest:
         uid = make_uid(user)
         assert uid in mail.outbox[0].body
         assert "/login/magic/" in mail.outbox[0].body
+
+    @override_settings(BODEPONTOIO=MAGIC_LINK_STRATEGY)
+    def test_email_states_expiry_in_hours_by_default(self, api_client, create_user):
+        """Django templates swallow unknown variables, so a typo in the expiry
+        context would ship "expira em  minutos" with nothing failing."""
+        create_user(email="user@example.com")
+        api_client.post("/auth/login/", {"email": "user@example.com"})
+        html = mail.outbox[0].alternatives[0][0]
+        assert "expira em 72 horas" in html
+
+    @override_settings(BODEPONTOIO=REUSE_STRATEGY)
+    def test_email_states_expiry_in_minutes_with_a_window(self, api_client, create_user):
+        create_user(email="user@example.com")
+        api_client.post("/auth/login/", {"email": "user@example.com"})
+        html = mail.outbox[0].alternatives[0][0]
+        assert "expira em 15 minutos" in html
 
     @override_settings(BODEPONTOIO={**MAGIC_LINK_STRATEGY, "LOGIN_AUTO_SIGNUP": True})
     def test_unknown_email_creates_user_and_sends_link(self, api_client):
@@ -242,7 +269,7 @@ class TestLoginMagicLinkConfirm:
         assert response.status_code == 400
 
     @override_settings(BODEPONTOIO=MAGIC_LINK_STRATEGY)
-    def test_link_is_single_use(self, api_client, create_user):
+    def test_link_is_single_use_by_default(self, api_client, create_user):
         user = create_user(email="user@example.com", is_email_verified=True)
         uid = make_uid(user)
         token = make_login_token(user)
@@ -250,6 +277,97 @@ class TestLoginMagicLinkConfirm:
         assert first.status_code == 200
         second = api_client.post("/auth/login/magic/confirm/", {"uid": uid, "token": token})
         assert second.status_code == 400
+
+    @override_settings(BODEPONTOIO=MAGIC_LINK_STRATEGY)
+    def test_default_hash_matches_django(self, api_client, create_user):
+        """Without a window the hash is Django's, so links issued by earlier
+        versions keep working."""
+        from django.contrib.auth.tokens import PasswordResetTokenGenerator
+
+        user = create_user(email="user@example.com", is_email_verified=True)
+        legacy = PasswordResetTokenGenerator()
+        legacy.key_salt = login_token_generator.key_salt
+        # Pin the timestamp: two make_token() calls read the clock separately and
+        # would disagree whenever the second ticks between them. Uses Django
+        # private API, so this breaks if PasswordResetTokenGenerator internals
+        # change; it guards the backward-compatibility claim, keep it working.
+        ts = login_token_generator._num_seconds(login_token_generator._now())
+        assert legacy._make_token_with_timestamp(
+            user, ts, legacy.secret
+        ) == login_token_generator._make_token_with_timestamp(
+            user, ts, login_token_generator.secret
+        )
+
+    @override_settings(
+        BODEPONTOIO={
+            **MAGIC_LINK_STRATEGY,
+            "LOGIN_MAGIC_LINK_REUSE_WINDOW_SECONDS": None,
+        }
+    )
+    def test_none_window_is_treated_as_off(self, api_client, create_user):
+        """None must mean single-use, not blow up: other settings here take None
+        for "off", and min() would raise from inside make_token."""
+        user = create_user(email="user@example.com", is_email_verified=True)
+        uid = make_uid(user)
+        token = make_login_token(user)
+        first = api_client.post("/auth/login/magic/confirm/", {"uid": uid, "token": token})
+        assert first.status_code == 200
+        second = api_client.post("/auth/login/magic/confirm/", {"uid": uid, "token": token})
+        assert second.status_code == 400
+
+    @override_settings(BODEPONTOIO=REUSE_STRATEGY)
+    def test_link_can_be_reused_within_window(self, api_client, create_user):
+        """Something burns the link first; the user's redemption must still work."""
+        user = create_user(email="user@example.com", is_email_verified=True)
+        uid = make_uid(user)
+        token = make_login_token(user)
+        first = api_client.post("/auth/login/magic/confirm/", {"uid": uid, "token": token})
+        assert first.status_code == 200
+        second = api_client.post("/auth/login/magic/confirm/", {"uid": uid, "token": token})
+        assert second.status_code == 200
+
+    @override_settings(BODEPONTOIO=REUSE_STRATEGY)
+    def test_login_does_not_invalidate_other_pending_links(
+        self, api_client, create_user, monkeypatch
+    ):
+        """Redeeming one link must not kill the user's other pending links."""
+        user = create_user(email="user@example.com", is_email_verified=True)
+        uid = make_uid(user)
+
+        earlier = datetime.now() - timedelta(seconds=120)
+        monkeypatch.setattr(login_token_generator, "_now", lambda: earlier)
+        older_token = make_login_token(user)
+        monkeypatch.undo()
+        newer_token = make_login_token(user)
+        assert older_token != newer_token
+
+        for token in (newer_token, older_token):
+            response = api_client.post(
+                "/auth/login/magic/confirm/", {"uid": uid, "token": token}
+            )
+            assert response.status_code == 200
+
+    @override_settings(BODEPONTOIO=REUSE_STRATEGY)
+    def test_link_expires_after_window(self, api_client, create_user, monkeypatch):
+        user = create_user(email="user@example.com", is_email_verified=True)
+        stale = datetime.now() - timedelta(seconds=login_token_reuse_window() + 60)
+        monkeypatch.setattr(login_token_generator, "_now", lambda: stale)
+        token = make_login_token(user)
+        monkeypatch.undo()
+        response = api_client.post(
+            "/auth/login/magic/confirm/", {"uid": make_uid(user), "token": token}
+        )
+        assert response.status_code == 400
+
+    @override_settings(BODEPONTOIO=MAGIC_LINK_STRATEGY)
+    def test_password_change_invalidates_pending_link(self, api_client, create_user):
+        user = create_user(email="user@example.com", is_email_verified=True)
+        uid = make_uid(user)
+        token = make_login_token(user)
+        user.set_password("uma-senha-nova")
+        user.save(update_fields=["password"])
+        response = api_client.post("/auth/login/magic/confirm/", {"uid": uid, "token": token})
+        assert response.status_code == 400
 
     @override_settings(BODEPONTOIO=MAGIC_LINK_STRATEGY)
     def test_inactive_user(self, api_client, create_user):
