@@ -34,6 +34,7 @@ from .serializers import (
     TokenRefreshSerializer,
 )
 from .throttles import LoginEmailThrottle, LoginIPThrottle
+from .tokens import login_token_reuse_window
 from .users import get_or_create_user_by_email
 
 User = get_user_model()
@@ -72,9 +73,6 @@ class PasswordlessLoginConfirmView(APIView):
             user.auth.is_email_verified = True
             user.auth.save(update_fields=["is_email_verified"])
 
-        user.last_login = timezone.now()
-        user.save(update_fields=["last_login"])
-
         _record_login(request, user)
         from .serializers import _get_tokens
         return Response(_get_tokens(user))
@@ -98,10 +96,18 @@ class MagicLinkLoginConfirmView(APIView):
             user.auth.is_email_verified = True
             user.auth.save(update_fields=["is_email_verified"])
 
-        # Single-use comes from Django's update_last_login receiver, fired by
-        # _record_login below (last_login is part of the token hash). The reuse
-        # window opts out of it; see LoginTokenGenerator.
+        # Single-use comes from moving last_login, which is part of the token
+        # hash; Django's update_last_login receiver normally does it, fired by
+        # _record_login. If a project disconnects that receiver the guarantee
+        # would vanish with no window configured and no error, so write it here
+        # instead of trusting the signal. The reuse window opts out of the whole
+        # mechanism; see LoginTokenGenerator.
+        last_login_before = user.last_login
         _record_login(request, user)
+        if not login_token_reuse_window() and user.last_login == last_login_before:
+            user.last_login = timezone.now()
+            user.save(update_fields=["last_login"])
+
         from .serializers import _get_tokens
         return Response(_get_tokens(user))
 

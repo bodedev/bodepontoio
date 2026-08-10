@@ -2,6 +2,8 @@ from datetime import datetime, timedelta
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import update_last_login
+from django.contrib.auth.signals import user_logged_in
 from django.core import mail
 from django.test import override_settings
 
@@ -54,6 +56,28 @@ class TestLoginMagicLinkRequest:
         api_client.post("/auth/login/", {"email": "user@example.com"})
         html = mail.outbox[0].alternatives[0][0]
         assert "expira em 15 minutos" in html
+
+    @override_settings(
+        BODEPONTOIO={**MAGIC_LINK_STRATEGY, "LOGIN_MAGIC_LINK_REUSE_WINDOW_SECONDS": 5400}
+    )
+    def test_email_rounds_expiry_up_and_keeps_minutes_under_two_hours(
+        self, api_client, create_user
+    ):
+        """A 90-minute window announced as "1 hora" would send users away 30
+        minutes early. Never promise less time than the link has."""
+        create_user(email="user@example.com")
+        api_client.post("/auth/login/", {"email": "user@example.com"})
+        html = mail.outbox[0].alternatives[0][0]
+        assert "expira em 90 minutos" in html
+
+    @override_settings(
+        BODEPONTOIO={**MAGIC_LINK_STRATEGY, "LOGIN_MAGIC_LINK_REUSE_WINDOW_SECONDS": 9000}
+    )
+    def test_email_rounds_partial_hours_up(self, api_client, create_user):
+        create_user(email="user@example.com")
+        api_client.post("/auth/login/", {"email": "user@example.com"})
+        html = mail.outbox[0].alternatives[0][0]
+        assert "expira em 3 horas" in html
 
     @override_settings(BODEPONTOIO={**MAGIC_LINK_STRATEGY, "LOGIN_AUTO_SIGNUP": True})
     def test_unknown_email_creates_user_and_sends_link(self, api_client):
@@ -314,6 +338,57 @@ class TestLoginMagicLinkConfirm:
         assert first.status_code == 200
         second = api_client.post("/auth/login/magic/confirm/", {"uid": uid, "token": token})
         assert second.status_code == 400
+
+    @override_settings(
+        BODEPONTOIO={
+            **MAGIC_LINK_STRATEGY,
+            "LOGIN_MAGIC_LINK_REUSE_WINDOW_SECONDS": -900,
+        }
+    )
+    def test_negative_window_is_treated_as_off(self, api_client, create_user):
+        """A negative window used to read as "window on" while the elapsed-time
+        check compared against a negative bound, so every link failed with
+        nothing to explain it. It must clamp to single-use instead."""
+        assert login_token_reuse_window() == 0
+        user = create_user(email="user@example.com", is_email_verified=True)
+        uid = make_uid(user)
+        token = make_login_token(user)
+        first = api_client.post("/auth/login/magic/confirm/", {"uid": uid, "token": token})
+        assert first.status_code == 200
+        second = api_client.post("/auth/login/magic/confirm/", {"uid": uid, "token": token})
+        assert second.status_code == 400
+
+    @override_settings(BODEPONTOIO=MAGIC_LINK_STRATEGY)
+    def test_confirm_records_last_login(self, api_client, create_user):
+        """The view stopped writing last_login itself; projects that read it
+        should not notice."""
+        user = create_user(email="user@example.com", is_email_verified=True)
+        assert user.last_login is None
+        api_client.post(
+            "/auth/login/magic/confirm/",
+            {"uid": make_uid(user), "token": make_login_token(user)},
+        )
+        user.refresh_from_db()
+        assert user.last_login is not None
+
+    @override_settings(BODEPONTOIO=MAGIC_LINK_STRATEGY)
+    def test_single_use_survives_a_disconnected_update_last_login(
+        self, api_client, create_user
+    ):
+        """Single-use rides on last_login moving, and Django's receiver is what
+        normally moves it. A project that disconnects it would lose the
+        guarantee silently, with no window configured and no error."""
+        user_logged_in.disconnect(dispatch_uid="update_last_login")
+        try:
+            user = create_user(email="user@example.com", is_email_verified=True)
+            uid = make_uid(user)
+            token = make_login_token(user)
+            first = api_client.post("/auth/login/magic/confirm/", {"uid": uid, "token": token})
+            assert first.status_code == 200
+            second = api_client.post("/auth/login/magic/confirm/", {"uid": uid, "token": token})
+            assert second.status_code == 400
+        finally:
+            user_logged_in.connect(update_last_login, dispatch_uid="update_last_login")
 
     @override_settings(BODEPONTOIO=REUSE_STRATEGY)
     def test_link_can_be_reused_within_window(self, api_client, create_user):

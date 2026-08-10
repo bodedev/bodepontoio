@@ -26,9 +26,14 @@ def check_reset_token(user, token):
 
 def login_token_reuse_window() -> int:
     """Seconds a login link stays reusable, or 0 for single-use. Capped by
-    PASSWORD_RESET_TIMEOUT, which ``check_token`` applies before ours."""
+    PASSWORD_RESET_TIMEOUT, which ``check_token`` applies before ours.
+
+    A negative setting clamps to 0 (single-use). Left as-is it would read as
+    "window on" everywhere while ``check_token`` compared an elapsed time
+    against a negative bound, so every link would fail with no error to explain
+    it."""
     window = bodepontoio_settings.LOGIN_MAGIC_LINK_REUSE_WINDOW_SECONDS or 0
-    return min(window, settings.PASSWORD_RESET_TIMEOUT)
+    return max(0, min(window, settings.PASSWORD_RESET_TIMEOUT))
 
 
 def login_token_ttl_seconds() -> int:

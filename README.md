@@ -245,7 +245,7 @@ BODEPONTOIO = {
 
 The tradeoff is a replay window instead of a used-once guarantee, so keep it
 short. It is capped by `PASSWORD_RESET_TIMEOUT` (Django's default is 3 days),
-which stays the ceiling in either mode.
+which stays the ceiling in either mode. Values below `0` clamp to single-use.
 
 **Upgrading.** With no window the hash is Django's, so links issued by earlier
 versions keep working. Turning a window on invalidates pending links for users
@@ -255,12 +255,16 @@ unaffected, since Django leaves that part of the hash empty for them.
 **Revoking.** Password and email changes invalidate pending links in either mode,
 since both stay in the hash. That is the only early revocation a window leaves
 you: `user.set_unusable_password()` picks a new random value on every call, so it
-works even on a passwordless deployment.
+works even on a passwordless deployment. Logging out does not revoke anything —
+once issued, a link lives until its window closes or the password or email
+changes.
 
-**Single-use relies on a signal receiver.** The confirm view does not write
-`last_login` itself; Django's `update_last_login`, connected to `user_logged_in`,
-does. Disconnecting that receiver removes single-use silently, with no window
-configured and no error.
+**Where single-use comes from.** It rides on `last_login` moving, since that is
+part of the token hash. Django's `update_last_login` receiver, connected to
+`user_logged_in`, normally does the writing. The confirm view checks afterwards
+and writes `last_login` itself if the receiver did not, so disconnecting it costs
+you the `last_login` bookkeeping on other login flows but never the single-use
+guarantee.
 
 ### OTP email templates
 
@@ -271,7 +275,15 @@ configured and no error.
 | `bodepontoio/password_reset_email.html` | `magic_link` | Password reset |
 | `bodepontoio/password_reset_otp.html` | `otp` | Password reset |
 
-OTP templates receive `{{ otp_code }}` and `{{ expiry_minutes }}` instead of a URL.
+OTP templates receive `{{ otp_code }}` instead of a URL.
+
+Every email that mentions a deadline gets `{{ expiry_phrase }}` — already worded
+and pluralized, in minutes below two hours and in hours above, always rounded up
+so the email never promises less time than the link or code really has. Prefer it
+over the raw `{{ expiry_hours }}` and `{{ expiry_minutes }}`, which stay in the
+context only for templates that already read them. The deadline itself comes from
+`PASSWORD_RESET_TIMEOUT` for the link emails and `OTP_EXPIRY_SECONDS` for the OTP
+ones; the magic-link login email follows its reuse window when one is set.
 
 ---
 

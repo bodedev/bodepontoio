@@ -1,6 +1,7 @@
 from django.contrib.auth import authenticate, get_user_model
 from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.module_loading import import_string
 from google.auth.transport import requests as google_requests
@@ -198,7 +199,17 @@ class EmailConfirmSerializer(serializers.Serializer):
         try:
             pk = decode_uid(attrs["uid"])
             user = User.objects.get(pk=pk)
-        except (User.DoesNotExist, ValueError, TypeError, OverflowError):
+        # DjangoValidationError: a UUID primary key rejects a malformed uid with
+        # that instead of ValueError. DRF converts it to a 400 on its own, so
+        # leaving it out did not crash -- it just answered with Django's raw
+        # "is not a valid UUID." instead of the message below.
+        except (
+            User.DoesNotExist,
+            DjangoValidationError,
+            ValueError,
+            TypeError,
+            OverflowError,
+        ):
             raise serializers.ValidationError(
                 "Link de confirmação inválido ou expirado."
             ) from None
@@ -301,7 +312,17 @@ class MagicLinkLoginConfirmSerializer(serializers.Serializer):
         try:
             pk = decode_uid(attrs["uid"])
             user = User.objects.get(pk=pk)
-        except (User.DoesNotExist, ValueError, TypeError, OverflowError):
+        # DjangoValidationError: a UUID primary key rejects a malformed uid with
+        # that instead of ValueError. DRF converts it to a 400 on its own, so
+        # leaving it out did not crash -- it just answered with Django's raw
+        # "is not a valid UUID." instead of the message below.
+        except (
+            User.DoesNotExist,
+            DjangoValidationError,
+            ValueError,
+            TypeError,
+            OverflowError,
+        ):
             raise serializers.ValidationError("Link inválido ou expirado.") from None
         if not check_login_token(user, attrs["token"]):
             raise serializers.ValidationError("Link inválido ou expirado.")
@@ -329,7 +350,17 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
         try:
             pk = decode_uid(attrs["uid"])
             user = User.objects.get(pk=pk)
-        except (User.DoesNotExist, ValueError, TypeError, OverflowError):
+        # DjangoValidationError: a UUID primary key rejects a malformed uid with
+        # that instead of ValueError. DRF converts it to a 400 on its own, so
+        # leaving it out did not crash -- it just answered with Django's raw
+        # "is not a valid UUID." instead of the message below.
+        except (
+            User.DoesNotExist,
+            DjangoValidationError,
+            ValueError,
+            TypeError,
+            OverflowError,
+        ):
             raise serializers.ValidationError("UID inválido.") from None
         if not check_reset_token(user, attrs["token"]):
             raise serializers.ValidationError("Token inválido ou expirado.")
