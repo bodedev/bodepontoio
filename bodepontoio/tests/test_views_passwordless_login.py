@@ -153,6 +153,17 @@ class TestLoginOTPConfirm:
         assert LoginRecord.objects.filter(user=user).count() == 1
 
     @override_settings(BODEPONTOIO=OTP_STRATEGY)
+    def test_records_last_login(self, api_client, create_user):
+        """The view stopped writing last_login itself and now leaves it to
+        Django's update_last_login receiver, like the magic-link view."""
+        user = create_user(email="user@example.com", is_email_verified=True)
+        assert user.last_login is None
+        otp = generate_otp(user, OTPCode.Purpose.LOGIN)
+        api_client.post("/auth/login/otp/confirm/", {"email": user.email, "code": otp.code})
+        user.refresh_from_db()
+        assert user.last_login is not None
+
+    @override_settings(BODEPONTOIO=OTP_STRATEGY)
     def test_auto_verifies_email(self, api_client, create_user):
         user = create_user(email="unverified@example.com", is_email_verified=False)
         otp = generate_otp(user, OTPCode.Purpose.LOGIN)
