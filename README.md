@@ -430,6 +430,25 @@ your_project/
 | `user` | The `User` instance requesting the reset |
 | `reset_url` | Full URL the user should click to reset their password |
 
+## Email Delivery
+
+All outgoing emails go through a wrapper around Django's `send_mail` that turns a down/unreachable SMTP relay into a handled `503` (`EmailDeliveryError`) instead of an unhandled `500`, and retries once on a fresh connection before giving up.
+
+```python
+BODEPONTOIO = {
+    "EMAIL_SEND_RETRIES": 2,  # default: 1 — extra attempts after the first failure
+}
+```
+
+Set Django's own [`EMAIL_TIMEOUT`](https://docs.djangoproject.com/en/stable/ref/settings/#email-timeout) (in seconds) so a hung connection to the relay fails fast instead of blocking the request indefinitely — it has no default timeout otherwise:
+
+```python
+# settings.py
+EMAIL_TIMEOUT = 5
+```
+
+Keep it comfortably under any upstream request timeout (e.g. a gunicorn worker timeout), since a request can wait through `1 + EMAIL_SEND_RETRIES` attempts before the `503` is returned.
+
 ## Responses
 
 All responses share a consistent envelope.

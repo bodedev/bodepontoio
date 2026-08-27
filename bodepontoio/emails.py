@@ -1,11 +1,13 @@
 from math import ceil
+from smtplib import SMTPException
 from urllib.parse import quote
 
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import send_mail as _django_send_mail
 from django.template.loader import render_to_string
 
 from .conf import bodepontoio_settings
+from .exceptions import EmailDeliveryError
 from .models import OTPCode
 from .otp import generate_otp
 from .tokens import (
@@ -15,6 +17,28 @@ from .tokens import (
     make_reset_token,
     make_uid,
 )
+
+
+def send_mail(**kwargs):
+    """Wraps Django's send_mail so a down/unreachable SMTP relay surfaces as a
+    handled 503 (EmailDeliveryError) through the DRF exception handler instead
+    of an unhandled 500: SMTPException and OSError (which covers socket
+    timeouts/connection errors) are the failure modes seen from the relay,
+    everything else (e.g. template errors) should keep propagating as-is.
+
+    Retries on a fresh connection (EMAIL_SEND_RETRIES attempts, on top of the
+    first try): the relay drops are typically transient (a mid-handshake
+    disconnect, a stalled connect), and EMAIL_TIMEOUT is short enough (seconds,
+    not gunicorn's 60s worker timeout) that a couple more attempts is cheap
+    insurance against a one-off blip."""
+    attempts = 1 + bodepontoio_settings.EMAIL_SEND_RETRIES
+    for attempt in range(1, attempts + 1):
+        try:
+            _django_send_mail(fail_silently=False, **kwargs)
+            return
+        except (SMTPException, OSError) as exc:
+            if attempt == attempts:
+                raise EmailDeliveryError() from exc
 
 
 def _expiry(seconds):
@@ -81,7 +105,6 @@ def _send_password_reset_magic_link(user):
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
         html_message=html_message,
-        fail_silently=False,
     )
 
 
@@ -103,7 +126,6 @@ def _send_password_reset_otp(user):
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
         html_message=html_message,
-        fail_silently=False,
     )
 
 
@@ -132,7 +154,6 @@ def _send_email_confirmation_magic_link(user, request):
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
         html_message=html_message,
-        fail_silently=False,
     )
 
 
@@ -169,7 +190,6 @@ def _send_login_magic_link(user, next_path=""):
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
         html_message=html_message,
-        fail_silently=False,
     )
 
 
@@ -191,7 +211,6 @@ def send_login_otp_email(user):
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
         html_message=html_message,
-        fail_silently=False,
     )
 
 
@@ -213,5 +232,4 @@ def _send_email_confirmation_otp(user):
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[user.email],
         html_message=html_message,
-        fail_silently=False,
     )

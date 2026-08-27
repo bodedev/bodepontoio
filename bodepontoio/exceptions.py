@@ -17,6 +17,12 @@ _TYPE_MAP = {
 }
 
 
+class EmailDeliveryError(exceptions.APIException):
+    status_code = 503
+    default_detail = "Não foi possível enviar o e-mail no momento. Tente novamente em instantes."
+    default_code = "email_delivery_error"
+
+
 def _get_error_type(exc):
     for exc_class, type_str in _TYPE_MAP.items():
         if isinstance(exc, exc_class):

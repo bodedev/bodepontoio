@@ -24,6 +24,7 @@ DEFAULTS = {
     "USER_SERIALIZER": "bodepontoio.serializers.DefaultUserSerializer",
     "PASSWORDLESS_LOGIN_MX_CHECK_ENABLED": False,
     "PASSWORDLESS_LOGIN_MX_CHECK_TIMEOUT_SECONDS": 2.0,
+    "EMAIL_SEND_RETRIES": 1,
 }
 
 
