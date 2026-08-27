@@ -61,9 +61,8 @@ class TestSendMailRetries:
             raise SMTPServerDisconnected("Connection unexpectedly closed: timed out")
 
         monkeypatch.setattr("bodepontoio.emails._django_send_mail", boom)
-        with override_settings(BODEPONTOIO={"EMAIL_SEND_RETRIES": 2}):
-            with pytest.raises(EmailDeliveryError):
-                send_mail(subject="s", message="m", from_email="a@example.com", recipient_list=["b@example.com"])
+        with override_settings(BODEPONTOIO={"EMAIL_SEND_RETRIES": 2}), pytest.raises(EmailDeliveryError):
+            send_mail(subject="s", message="m", from_email="a@example.com", recipient_list=["b@example.com"])
         assert len(calls) == 3
 
     def test_zero_retries_fails_after_a_single_attempt(self, monkeypatch):
@@ -74,9 +73,8 @@ class TestSendMailRetries:
             raise SMTPServerDisconnected("Connection unexpectedly closed: timed out")
 
         monkeypatch.setattr("bodepontoio.emails._django_send_mail", boom)
-        with override_settings(BODEPONTOIO={"EMAIL_SEND_RETRIES": 0}):
-            with pytest.raises(EmailDeliveryError):
-                send_mail(subject="s", message="m", from_email="a@example.com", recipient_list=["b@example.com"])
+        with override_settings(BODEPONTOIO={"EMAIL_SEND_RETRIES": 0}), pytest.raises(EmailDeliveryError):
+            send_mail(subject="s", message="m", from_email="a@example.com", recipient_list=["b@example.com"])
         assert len(calls) == 1
 
 
