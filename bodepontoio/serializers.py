@@ -13,10 +13,18 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from .conf import bodepontoio_settings
 from .tokens import check_confirmation_token, check_login_token, check_reset_token, decode_uid
-from .users import get_or_create_user_by_email, has_username_field, unique_username_for_email
+from .users import (
+    create_user_for_email,
+    get_or_create_user_by_email,
+    get_user_by_email,
+    has_username_field,
+    normalize_email,
+)
 from .utils.email.mx import domain_has_mx_record
 
 User = get_user_model()
+
+EMAIL_ALREADY_REGISTERED = "Já existe um usuário com este e-mail."
 
 _MX_CHECK_CACHE_PREFIX = "bodepontoio:mx_check"
 _MX_CHECK_CACHE_TTL_SECONDS = 3600
@@ -84,17 +92,11 @@ class LoginSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         login = attrs["login"]
-        try:
-            user_obj = User.objects.get(email=login)
-        except User.DoesNotExist:
-            user_obj = None
-            if has_username_field():
-                try:
-                    user_obj = User.objects.get(username=login)
-                except User.DoesNotExist:
-                    user_obj = None
-            if user_obj is None:
-                raise serializers.ValidationError("Credenciais inválidas.") from None
+        user_obj = get_user_by_email(login)
+        if user_obj is None and has_username_field():
+            user_obj = User.objects.filter(username=login).first()
+        if user_obj is None:
+            raise serializers.ValidationError("Credenciais inválidas.")
 
         user = authenticate(
             request=self.context.get("request"),
@@ -168,16 +170,22 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("Já existe um usuário com este e-mail.")
+        value = normalize_email(value)
+        if get_user_by_email(value) is not None:
+            raise serializers.ValidationError(EMAIL_ALREADY_REGISTERED)
         _validate_email_domain_has_mx(value)
         return value
 
     def create(self, validated_data):
-        if has_username_field() and not validated_data.get("username"):
-            validated_data["username"] = unique_username_for_email(validated_data["email"])
-
-        return User.objects.create_user(**validated_data)
+        user, created = create_user_for_email(
+            validated_data["email"],
+            lambda fields: User.objects.create_user(**fields),
+            validated_data,
+        )
+        if not created:
+            # Outra requisição cadastrou o mesmo e-mail entre a validação e o INSERT.
+            raise serializers.ValidationError({"email": [EMAIL_ALREADY_REGISTERED]})
+        return user
 
 
 class PasswordChangeSerializer(serializers.Serializer):

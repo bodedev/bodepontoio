@@ -146,6 +146,32 @@ python manage.py migrate
 
 A confirmation email is sent automatically. The user cannot log in until the email is confirmed.
 
+## Unique email
+
+Every endpoint stores emails lowercased (`Fulano@X.com` → `fulano@x.com`) and looks them up case-insensitively, so `Fulano@x.com` and `fulano@x.com` are the same account on every database. (SQLite and PostgreSQL compare case-sensitively; MySQL with a `_ci` collation does not.) Accounts created before this change are still found, and if legacy duplicates exist, the oldest one is used.
+
+The application check alone cannot stop **concurrent** signups for the same email, such as a double-clicked register button or two passwordless logins in parallel: both requests pass the check before either one saves. `auth.User` has no unique constraint on `email`, so add one in a project migration:
+
+```python
+from django.conf import settings
+from django.db import migrations
+
+from bodepontoio.operations import AddUniqueEmailIndex
+
+
+class Migration(migrations.Migration):
+    dependencies = [migrations.swappable_dependency(settings.AUTH_USER_MODEL)]
+    operations = [AddUniqueEmailIndex()]
+```
+
+It creates `UNIQUE INDEX ... (NULLIF(LOWER(email), ''))`. Users without an email are not restricted. It works on SQLite, PostgreSQL and MySQL 8.0.13+, but not on MariaDB. With the index in place, a losing concurrent request gets the existing account (passwordless/Google) or a 400 "email already registered" (register).
+
+The migration refuses to run while duplicates exist. List them with:
+
+```bash
+python manage.py bpio_emails_duplicados
+```
+
 ## Google Login
 
 `POST social/google/` accepts `{"id_token": "<google-oauth2-id-token>"}`.

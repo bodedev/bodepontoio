@@ -35,7 +35,7 @@ from .serializers import (
 )
 from .throttles import LoginEmailThrottle, LoginIPThrottle
 from .tokens import login_token_reuse_window
-from .users import get_or_create_user_by_email
+from .users import get_or_create_user_by_email, get_user_by_email
 
 User = get_user_model()
 
@@ -57,10 +57,9 @@ class PasswordlessLoginConfirmView(APIView):
         serializer = PasswordlessLoginConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        try:
-            user = User.objects.get(email=serializer.validated_data["email"])
-        except User.DoesNotExist:
-            raise AuthenticationFailed("Código inválido ou expirado.") from None
+        user = get_user_by_email(serializer.validated_data["email"])
+        if user is None:
+            raise AuthenticationFailed("Código inválido ou expirado.")
 
         if not user.is_active:
             raise AuthenticationFailed("Conta de usuário desativada.")
@@ -125,7 +124,7 @@ class LoginView(APIView):
             if bodepontoio_settings.LOGIN_AUTO_SIGNUP:
                 user, _created = get_or_create_user_by_email(email)
             else:
-                user = User.objects.filter(email=email).first()
+                user = get_user_by_email(email)
             if user is not None and user.is_active:
                 send_login_email(user, next_path=next_path)
             if bodepontoio_settings.LOGIN_STRATEGY == "magic_link":
@@ -153,7 +152,7 @@ class LoginResendView(APIView):
         email = serializer.validated_data["email"]
         next_path = serializer.validated_data.get("next", "")
 
-        user = User.objects.filter(email=email).first()
+        user = get_user_by_email(email)
         if user is not None and user.is_active:
             send_login_email(user, next_path=next_path)
 
@@ -236,11 +235,10 @@ class PasswordResetRequestView(APIView):
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        try:
-            user = User.objects.get(email=serializer.validated_data["email"])
+        user = get_user_by_email(serializer.validated_data["email"])
+        if user is not None:
             send_password_reset_email(user)
-        except User.DoesNotExist:
-            pass  # Anti-enumeration: always return 200
+        # Anti-enumeration: always return 200
         if bodepontoio_settings.PASSWORD_RESET_STRATEGY == "otp":
             msg = "Se esse e-mail existir, um código de redefinição foi enviado."
         else:
@@ -282,10 +280,9 @@ class OTPEmailConfirmView(APIView):
         serializer = OTPEmailConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        try:
-            user = User.objects.get(email=serializer.validated_data["email"])
-        except User.DoesNotExist:
-            raise AuthenticationFailed("Código inválido ou expirado.") from None
+        user = get_user_by_email(serializer.validated_data["email"])
+        if user is None:
+            raise AuthenticationFailed("Código inválido ou expirado.")
 
         success, error = verify_otp(user, serializer.validated_data["code"], OTPCode.Purpose.EMAIL_CONFIRM)
         if not success:
@@ -306,10 +303,9 @@ class OTPPasswordResetConfirmView(APIView):
         serializer = OTPPasswordResetConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        try:
-            user = User.objects.get(email=serializer.validated_data["email"])
-        except User.DoesNotExist:
-            raise AuthenticationFailed("Código inválido ou expirado.") from None
+        user = get_user_by_email(serializer.validated_data["email"])
+        if user is None:
+            raise AuthenticationFailed("Código inválido ou expirado.")
 
         success, error = verify_otp(user, serializer.validated_data["code"], OTPCode.Purpose.PASSWORD_RESET)
         if not success:
@@ -326,12 +322,10 @@ class ResendEmailConfirmationView(APIView):
     def post(self, request):
         serializer = ResendEmailConfirmationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        try:
-            user = User.objects.get(email=serializer.validated_data["email"])
-            if not user.auth.is_email_verified:
-                send_email_confirmation_email(user, request)
-        except User.DoesNotExist:
-            pass  # Anti-enumeration: always return 200
+        user = get_user_by_email(serializer.validated_data["email"])
+        if user is not None and not user.auth.is_email_verified:
+            send_email_confirmation_email(user, request)
+        # Anti-enumeration: always return 200
         if bodepontoio_settings.EMAIL_CONFIRM_STRATEGY == "otp":
             msg = "Se esse e-mail existir e não estiver confirmado, um código de confirmação foi enviado."
         else:
