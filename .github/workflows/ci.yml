@@ -107,3 +107,48 @@ jobs:
 
       - name: Run tests
         run: uv run --no-sync pytest --no-cov -q
+
+  # O SQLite e o MySQL comparam texto de formas diferentes (caixa, acento, collation);
+  # este job pega o que só quebra num dos dois. sql_mode igual ao de produção.
+  test-mysql:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci
+          MYSQL_DATABASE: bpio_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -uroot -pci --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --all-extras --python 3.12
+
+      - name: Set production sql_mode
+        run: >-
+          mysql -h127.0.0.1 -uroot -pci -e "SET GLOBAL sql_mode =
+          'ANSI,ONLY_FULL_GROUP_BY,STRICT_ALL_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'"
+
+      - name: Run tests
+        env:
+          DB_ENGINE: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: "3306"
+          DB_USER: root
+          DB_PASSWORD: ci
+        run: uv run --with pymysql pytest --no-cov -q --nomigrations

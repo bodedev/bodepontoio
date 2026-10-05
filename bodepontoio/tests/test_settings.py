@@ -1,12 +1,38 @@
+import os
+from typing import Any
+
 SECRET_KEY = "test-secret-key-for-bodepontoio-do-not-use-in-production"
 DEBUG = True
 
-DATABASES = {
+DATABASES: dict[str, dict[str, Any]] = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": ":memory:",
     }
 }
+
+# Para rodar a suíte contra MySQL (caixa/collation se comportam diferente do SQLite):
+# DB_ENGINE=mysql DB_HOST=127.0.0.1 DB_PORT=13306 DB_USER=root DB_PASSWORD=ci uv run --with pymysql pytest --nomigrations
+# (--nomigrations: o testapp é criado via syncdb antes das migrations e tem FK para
+# auth_user; o SQLite tolera, o MySQL não.)
+if os.getenv("DB_ENGINE") == "mysql":
+    # PyMySQL é Python puro (o mysqlclient não tem wheel para todas as versões do
+    # Python da matriz); o Django exige mysqlclient >= 2.2.1, então ajustamos a versão.
+    import pymysql  # type: ignore[import-untyped]
+
+    pymysql.version_info = (2, 2, 1, "final", 0)
+    pymysql.install_as_MySQLdb()
+
+    DATABASES["default"] = {
+        "ENGINE": "django.db.backends.mysql",
+        "NAME": os.getenv("DB_NAME", "bpio_ci"),
+        "HOST": os.getenv("DB_HOST", "127.0.0.1"),
+        "PORT": os.getenv("DB_PORT", "3306"),
+        "USER": os.getenv("DB_USER", "root"),
+        "PASSWORD": os.getenv("DB_PASSWORD", ""),
+        "OPTIONS": {"charset": "utf8mb4"},
+        "TEST": {"CHARSET": "utf8mb4", "COLLATION": "utf8mb4_0900_ai_ci"},
+    }
 
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
