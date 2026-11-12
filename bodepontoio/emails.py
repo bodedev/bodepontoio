@@ -5,7 +5,7 @@ from django.conf import settings
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 
-from .conf import bodepontoio_settings
+from .conf import bodepontoio_settings, uses_magic_link
 from .models import OTPCode
 from .otp import generate_otp
 from .tokens import (
@@ -137,7 +137,7 @@ def _send_email_confirmation_magic_link(user, request):
 
 
 def send_login_email(user, next_path=""):
-    if bodepontoio_settings.LOGIN_STRATEGY == "magic_link":
+    if uses_magic_link():
         _send_login_magic_link(user, next_path=next_path)
     else:
         send_login_otp_email(user)

@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth.password_validation import validate_password
 from django.core.cache import cache
 from django.core.exceptions import ImproperlyConfigured
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -57,9 +58,16 @@ def _validate_email_domain_has_mx(value: str) -> None:
 
 
 class DefaultUserSerializer(serializers.ModelSerializer):
+    # False for passwordless accounts (unusable password). Lets a frontend ask
+    # them to create one through password/set/.
+    has_password = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ("id", "email", "first_name", "last_name")
+        fields = ("id", "email", "first_name", "last_name", "has_password")
+
+    def get_has_password(self, user) -> bool:
+        return user.has_usable_password()
 
 
 def get_user_serializer_class():
@@ -199,6 +207,25 @@ class PasswordChangeSerializer(serializers.Serializer):
         return value
 
 
+class PasswordSetSerializer(serializers.Serializer):
+    """First password for an account that has none (passwordless signup).
+    Unlike password/change/ there is no old password to check."""
+
+    new_password = serializers.CharField(write_only=True, min_length=8)
+
+    def validate(self, attrs):
+        user = self.context["request"].user
+        if user.has_usable_password():
+            raise serializers.ValidationError(
+                "Sua conta já tem uma senha. Use a troca de senha."
+            )
+        try:
+            validate_password(attrs["new_password"], user=user)
+        except DjangoValidationError as e:
+            raise serializers.ValidationError({"new_password": list(e.messages)}) from None
+        return attrs
+
+
 class EmailConfirmSerializer(serializers.Serializer):
     uid = serializers.CharField()
     token = serializers.CharField()
@@ -305,6 +332,13 @@ class PasswordlessLoginRequestSerializer(serializers.Serializer):
         ):
             raise error
         return value
+
+
+class HybridLoginRequestSerializer(PasswordlessLoginRequestSerializer):
+    """login/ under "password_or_magic_link": email alone asks which method the
+    account uses, email + password logs in."""
+
+    password = serializers.CharField(write_only=True, required=False)
 
 
 class PasswordlessLoginConfirmSerializer(serializers.Serializer):

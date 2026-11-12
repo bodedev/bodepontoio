@@ -211,7 +211,7 @@ class TestDefaultUserSerializer:
         assert data["email"] == "serial@example.com"
         assert data["first_name"] == "Ada"
         assert data["last_name"] == "Lovelace"
-        assert set(data.keys()) == {"id", "email", "first_name", "last_name"}
+        assert set(data.keys()) == {"id", "email", "first_name", "last_name", "has_password"}
 
 
 class TestGetUserSerializerClass:

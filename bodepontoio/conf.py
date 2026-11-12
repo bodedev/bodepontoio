@@ -49,6 +49,19 @@ class BodePontoIoSettings:
 
 bodepontoio_settings = BodePontoIoSettings(DEFAULTS)
 
+# Strategies whose passwordless step is an emailed magic link. The hybrid one
+# also accepts a password, for users who have set one; see LoginView.
+MAGIC_LINK_STRATEGIES = ("magic_link", "password_or_magic_link")
+PASSWORDLESS_STRATEGIES = ("otp", *MAGIC_LINK_STRATEGIES)
+
+
+def uses_magic_link() -> bool:
+    return bodepontoio_settings.LOGIN_STRATEGY in MAGIC_LINK_STRATEGIES
+
+
+def is_hybrid_login() -> bool:
+    return bodepontoio_settings.LOGIN_STRATEGY == "password_or_magic_link"
+
 
 def _reload_bodepontoio_settings(*args, **kwargs):
     setting = kwargs.get("setting")
