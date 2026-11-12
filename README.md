@@ -84,7 +84,7 @@ BODEPONTOIO = {
     "OTP_MAX_ATTEMPTS": 5,     # wrong attempts before the code is burned
 
     # Login strategy (default: "password")
-    "LOGIN_STRATEGY": "otp",  # "password", "otp" or "magic_link"
+    "LOGIN_STRATEGY": "otp",  # "password", "otp", "magic_link" or "password_or_magic_link"
     "LOGIN_AUTO_SIGNUP": True,  # default: False — see Passwordless Login
 }
 ```
@@ -110,6 +110,7 @@ python manage.py migrate
 | POST | `logout/` | Authenticated | Blacklist refresh token |
 | POST | `register/` | Public | Create account, sends confirmation email |
 | POST | `password/change/` | Authenticated | Change password |
+| POST | `password/set/` | Authenticated | Set a first password on a passwordless account |
 | POST | `password/reset/` | Public | Request reset link or code |
 | POST | `password/reset/confirm/` | Public | Confirm reset with uid + token (magic link) |
 | POST | `password/reset/confirm/otp/` | Public | Confirm reset with email + OTP code ² |
@@ -120,8 +121,8 @@ python manage.py migrate
 
 ¹ Returns 404 unless `LOGIN_STRATEGY = "otp"`. `login/` always exists but its behaviour changes with the strategy.  
 ² Returns 404 unless the matching strategy is set to `"otp"`.  
-³ Returns 404 unless `LOGIN_STRATEGY = "magic_link"`.  
-⁴ Returns 404 unless `LOGIN_STRATEGY` is `"otp"` or `"magic_link"`.
+³ Returns 404 unless `LOGIN_STRATEGY` is `"magic_link"` or `"password_or_magic_link"`.  
+⁴ Returns 404 when `LOGIN_STRATEGY = "password"`.
 
 ## Login
 
@@ -319,7 +320,7 @@ Users can log in with just their email address — no password required. Two del
 
 ```python
 BODEPONTOIO = {
-    "LOGIN_STRATEGY": "otp",         # "password" (default), "otp", or "magic_link"
+    "LOGIN_STRATEGY": "otp",         # "password" (default), "otp", "magic_link" or "password_or_magic_link"
 }
 ```
 
@@ -332,6 +333,7 @@ BODEPONTOIO = {
 | `"password"` (default) | `{"login": "...", "password": "..."}` | `{access, refresh}` tokens |
 | `"otp"` | `{"email": "..."}` | 200 message, sends OTP code by email |
 | `"magic_link"` | `{"email": "..."}` | 200 message, sends a signed login link by email |
+| `"password_or_magic_link"` | `{"email": "..."}` or `{"email": "...", "password": "..."}` | See [Password or magic link](#password-or-magic-link) |
 
 The user then completes login with:
 
@@ -407,6 +409,31 @@ Notes:
 - Throttle counters are shared with `POST login/` (`LOGIN_THROTTLE_IP_RATE`, `LOGIN_THROTTLE_EMAIL_RATE`), so alternating endpoints does not reset the budget.
 - For OTP, the new code invalidates any prior unused code for that user (the prior one stops working immediately).
 - For magic links, the previously emailed link remains usable until the next successful confirm (which updates `last_login` and breaks every outstanding token at once).
+
+### Password or magic link
+
+`LOGIN_STRATEGY = "password_or_magic_link"` lets passwordless accounts move to a password one at a time. Accounts without a password log in with magic links, as in `"magic_link"`; once an account sets a password, it logs in with that and its magic links stop working.
+
+`POST login/` with only an email returns which method the account uses:
+
+| Account | Response | Side effect |
+|---------|----------|-------------|
+| Has a usable password | `{"method": "password"}` | Nothing is sent |
+| Passwordless (or unknown, with `LOGIN_AUTO_SIGNUP`) | `{"method": "magic_link", "message": "..."}` | Magic link sent (account created first if unknown) |
+| Unknown, without `LOGIN_AUTO_SIGNUP` | `{"method": "magic_link", "message": "..."}` | Nothing is sent |
+
+The frontend then asks for the password, or shows "check your inbox". `POST login/` with `{"email": "...", "password": "..."}` logs in like the `"password"` strategy and returns `{access, refresh, user}`.
+
+> ⚠️ This response tells anyone whether an email belongs to an account with a password. The `login/` throttles (`LOGIN_THROTTLE_IP_RATE`, `LOGIN_THROTTLE_EMAIL_RATE`) are what keep that from being cheap to harvest, and they also cap password guesses per email.
+
+Other endpoints under this strategy:
+
+- `login/resend/` answers the same `{"method": ...}` shape and never sends a link to an account that has a password.
+- `login/magic/confirm/` refuses accounts that have a password. Setting a password already invalidates pending links (the password hash is part of the token), so this guards links minted some other way.
+- `password/set/` (authenticated) sets the first password on an account that has none, typically from a "create your password" prompt after a magic-link login. It runs `AUTH_PASSWORD_VALIDATORS` and answers 400 once the account has a password. The current JWTs stay valid.
+- `password/reset/confirm/` also marks the email as verified, since the reset link proves the inbox. Without it, an auto-signup account that never opened a magic link would get "e-mail não confirmado" on its first password login. Forgotten passwords go through the regular reset flow.
+
+The default user serializer includes `has_password`, so the frontend can tell which accounts still need to create one.
 
 ### Single-use magic link
 

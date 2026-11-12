@@ -2,13 +2,18 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.signals import user_logged_in
 from django.utils import timezone
 from rest_framework import permissions, status
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.exceptions import AuthenticationFailed, ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .conf import bodepontoio_settings
+from .conf import (
+    PASSWORDLESS_STRATEGIES,
+    bodepontoio_settings,
+    is_hybrid_login,
+    uses_magic_link,
+)
 from .emails import (
     send_email_confirmation_email,
     send_login_email,
@@ -19,6 +24,7 @@ from .otp import verify_otp
 from .serializers import (
     EmailConfirmSerializer,
     GoogleLoginSerializer,
+    HybridLoginRequestSerializer,
     LoginSerializer,
     LogoutSerializer,
     MagicLinkLoginConfirmSerializer,
@@ -29,6 +35,7 @@ from .serializers import (
     PasswordlessLoginRequestSerializer,
     PasswordResetConfirmSerializer,
     PasswordResetRequestSerializer,
+    PasswordSetSerializer,
     RegisterSerializer,
     ResendEmailConfirmationSerializer,
     TokenRefreshSerializer,
@@ -81,12 +88,18 @@ class MagicLinkLoginConfirmView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        if bodepontoio_settings.LOGIN_STRATEGY != "magic_link":
+        if not uses_magic_link():
             return Response(status=status.HTTP_404_NOT_FOUND)
 
         serializer = MagicLinkLoginConfirmSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
+
+        # In the hybrid strategy an account with a password logs in with it;
+        # its magic links stop working. Setting the password already changes
+        # the token hash, so this only guards links minted some other way.
+        if is_hybrid_login() and user.has_usable_password():
+            raise ValidationError("Link inválido ou expirado.")
 
         if not user.is_active:
             raise AuthenticationFailed("Conta de usuário desativada.")
@@ -116,6 +129,9 @@ class LoginView(APIView):
     throttle_classes = [LoginIPThrottle, LoginEmailThrottle]
 
     def post(self, request):
+        if is_hybrid_login():
+            return self._hybrid(request)
+
         if bodepontoio_settings.LOGIN_STRATEGY in ("otp", "magic_link"):
             serializer = PasswordlessLoginRequestSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
@@ -138,13 +154,53 @@ class LoginView(APIView):
         _record_login(request, serializer.validated_data["user"])
         return Response(serializer.data)
 
+    def _hybrid(self, request):
+        """``LOGIN_STRATEGY = "password_or_magic_link"``.
+
+        ``{email}`` answers which method the account uses: ``"password"`` when
+        it has one (nothing is sent), otherwise ``"magic_link"`` after sending
+        the link (creating the account first with LOGIN_AUTO_SIGNUP). This
+        tells callers whether an email has a password; the login throttles are
+        what keep that from being cheap to harvest.
+
+        ``{email, password}`` logs in and returns the tokens, like the
+        ``"password"`` strategy.
+        """
+        serializer = HybridLoginRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"]
+
+        if "password" in serializer.validated_data:
+            login = LoginSerializer(
+                data={"login": email, "password": serializer.validated_data["password"]},
+                context={"request": request},
+            )
+            login.is_valid(raise_exception=True)
+            _record_login(request, login.validated_data["user"])
+            return Response(login.data)
+
+        user = get_user_by_email(email)
+        if user is not None and user.has_usable_password():
+            return Response({"method": "password"})
+
+        if user is None and bodepontoio_settings.LOGIN_AUTO_SIGNUP:
+            user, _created = get_or_create_user_by_email(email)
+        if user is not None and user.is_active:
+            send_login_email(user, next_path=serializer.validated_data.get("next", ""))
+        return Response(
+            {
+                "method": "magic_link",
+                "message": "Um link de acesso foi enviado para o seu e-mail.",
+            }
+        )
+
 
 class LoginResendView(APIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [LoginIPThrottle, LoginEmailThrottle]
 
     def post(self, request):
-        if bodepontoio_settings.LOGIN_STRATEGY not in ("otp", "magic_link"):
+        if bodepontoio_settings.LOGIN_STRATEGY not in PASSWORDLESS_STRATEGIES:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
         serializer = PasswordlessLoginRequestSerializer(data=request.data)
@@ -153,6 +209,18 @@ class LoginResendView(APIView):
         next_path = serializer.validated_data.get("next", "")
 
         user = get_user_by_email(email)
+        if is_hybrid_login():
+            if user is not None and user.has_usable_password():
+                return Response({"method": "password"})
+            if user is not None and user.is_active:
+                send_login_email(user, next_path=next_path)
+            return Response(
+                {
+                    "method": "magic_link",
+                    "message": "Se esse e-mail existir, reenviamos um link de acesso.",
+                }
+            )
+
         if user is not None and user.is_active:
             send_login_email(user, next_path=next_path)
 
@@ -229,6 +297,24 @@ class PasswordChangeView(APIView):
         return Response("Senha alterada com sucesso.")
 
 
+class PasswordSetView(APIView):
+    """First password for a passwordless account. Answers 400 once the account
+    has one; from then on it is password/change/ or the reset flow.
+
+    The current JWTs stay valid (SimpleJWT does not tie them to the password),
+    so the caller stays logged in.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = PasswordSetSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        request.user.set_password(serializer.validated_data["new_password"])
+        request.user.save()
+        return Response("Senha criada com sucesso.")
+
+
 class PasswordResetRequestView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -255,6 +341,12 @@ class PasswordResetConfirmView(APIView):
         user = serializer.validated_data["user"]
         user.set_password(serializer.validated_data["new_password"])
         user.save()
+        # The reset link proves the inbox. In the hybrid strategy an account
+        # created by auto-signup may never have opened a magic link, and
+        # without this its new password would hit "e-mail não confirmado".
+        if is_hybrid_login() and not user.auth.is_email_verified:
+            user.auth.is_email_verified = True
+            user.auth.save(update_fields=["is_email_verified"])
         return Response("Senha redefinida com sucesso.")
 
 
