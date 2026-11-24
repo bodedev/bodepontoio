@@ -73,6 +73,7 @@ BODEPONTOIO = {
     "PASSWORD_RESET_URL_PATH": "/reset/{uid}/{token}/",  # default: "/reset-password/{uid}/{token}/"
     "LOGIN_MAGIC_LINK_URL_PATH": "/auth/magic/{uid}/{token}/",  # default: "/login/magic/{uid}/{token}/"
     "GOOGLE_CLIENT_ID": "your-client-id.apps.googleusercontent.com",  # required for Google login
+    "GOOGLE_CLIENT_IDS": [],  # extra accepted audiences, e.g. one client per platform
 
     # OTP strategies (default: "magic_link" — backward compatible)
     "EMAIL_CONFIRM_STRATEGY": "otp",   # "magic_link" or "otp"
@@ -179,11 +180,15 @@ python manage.py bpio_emails_duplicados
 
 Pass the **ID token** issued by Google's OAuth 2.0 flow (e.g. from Google Sign-In for Web or a mobile SDK). The endpoint verifies the token against the configured client ID, then:
 
-1. Creates a new user (with email, first_name, last_name from the token) if one doesn't exist yet
-2. Marks the email as verified automatically
-3. Returns the same `access` + `refresh` tokens as regular login
+1. Rejects it (401) unless its `aud` is one of the configured client IDs, its `iss` is Google, and Google says the e-mail is verified (`email_verified: true`). Accounts are matched by e-mail, so an unverified address must never log in
+2. Creates a new user (with email, first_name, last_name from the token) if one doesn't exist yet
+3. Rejects a deactivated account (401) without changing it
+4. Marks the email as verified automatically
+5. Returns the same `access` + `refresh` tokens as regular login
 
-Requires `BODEPONTOIO["GOOGLE_CLIENT_ID"]` to be set.
+Requires `BODEPONTOIO["GOOGLE_CLIENT_ID"]` (or `GOOGLE_CLIENT_IDS`) to be set. Every client ID in either setting is an accepted audience.
+
+`bodepontoio.serializers.verify_google_id_token(token)` runs the same checks and returns the token's claims, for projects that need their own Google flow.
 
 ## Email Confirmation
 
