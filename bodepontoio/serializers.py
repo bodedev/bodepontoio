@@ -5,6 +5,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.module_loading import import_string
+from google.auth import exceptions as google_exceptions
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
 from rest_framework import serializers
@@ -264,38 +265,63 @@ class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
 
+GOOGLE_ISSUERS = ("accounts.google.com", "https://accounts.google.com")
+
+
+def google_client_ids():
+    """Every accepted audience: GOOGLE_CLIENT_ID plus GOOGLE_CLIENT_IDS."""
+    ids = [bodepontoio_settings.GOOGLE_CLIENT_ID, *bodepontoio_settings.GOOGLE_CLIENT_IDS]
+    return [client_id for client_id in ids if client_id]
+
+
+def verify_google_id_token(token):
+    """
+    Verifies a Google ID token and returns its claims. Raises
+    AuthenticationFailed for a bad signature, an expired token, an unknown
+    audience or issuer, and for an e-mail Google has not verified: linking
+    accounts by an unverified address would hand an existing account to
+    whoever created a Google account with it.
+    """
+    client_ids = google_client_ids()
+    if not client_ids:
+        raise ImproperlyConfigured("BODEPONTOIO['GOOGLE_CLIENT_ID'] is not set.")
+
+    invalid = AuthenticationFailed("Token de ID do Google inválido.")
+    try:
+        # audience=None skips google-auth's own audience check so a list of
+        # client IDs can be accepted; it is checked right below.
+        id_info = google_id_token.verify_oauth2_token(token, google_requests.Request(), None)
+    except (ValueError, google_exceptions.GoogleAuthError):
+        # GoogleAuthError: wrong issuer, or Google's certs could not be
+        # fetched. Neither is a ValueError, and both used to surface as 500.
+        raise invalid from None
+
+    if id_info.get("aud") not in client_ids or id_info.get("iss") not in GOOGLE_ISSUERS:
+        raise invalid
+    if id_info.get("email_verified") is not True or not id_info.get("email"):
+        raise invalid
+    return id_info
+
+
 class GoogleLoginSerializer(serializers.Serializer):
     id_token = serializers.CharField(write_only=True)
 
     def validate(self, attrs):
-        client_id = bodepontoio_settings.GOOGLE_CLIENT_ID
+        id_info = verify_google_id_token(attrs["id_token"])
 
-        if not client_id:
-            raise ImproperlyConfigured("BODEPONTOIO['GOOGLE_CLIENT_ID'] is not set.")
-
-        try:
-            id_info = google_id_token.verify_oauth2_token(
-                attrs["id_token"], google_requests.Request(), client_id
-            )
-
-        except ValueError:
-            raise AuthenticationFailed("Token de ID do Google inválido.") from None
-
-        email = id_info["email"]
-        first_name = id_info.get("given_name", "")
-        last_name = id_info.get("family_name", "")
         user, _created = get_or_create_user_by_email(
-            email,
-            first_name=first_name,
-            last_name=last_name,
+            id_info["email"],
+            first_name=id_info.get("given_name", ""),
+            last_name=id_info.get("family_name", ""),
         )
+
+        # Before any write: a deactivated account is left untouched.
+        if not user.is_active:
+            raise AuthenticationFailed("Conta de usuário desativada.")
 
         profile, _ = user.auth.__class__.objects.get_or_create(user=user)
         profile.is_email_verified = True
         profile.save(update_fields=["is_email_verified"])
-
-        if not user.is_active:
-            raise AuthenticationFailed("Conta de usuário desativada.")
 
         attrs["user"] = user
         return attrs

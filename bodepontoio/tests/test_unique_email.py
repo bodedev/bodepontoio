@@ -151,7 +151,14 @@ class TestEmailLookupsIgnoreCase:
 
     def test_google_login_reuses_account_in_other_case(self, api_client, create_user):
         user = create_user(email="Google@Example.com")
-        info = {"email": "google@example.com", "given_name": "G", "family_name": "U"}
+        info = {
+            "iss": "https://accounts.google.com",
+            "aud": "test-client-id.apps.googleusercontent.com",
+            "email": "google@example.com",
+            "email_verified": True,
+            "given_name": "G",
+            "family_name": "U",
+        }
         with patch(GOOGLE_MOCK_TARGET, return_value=info):
             response = api_client.post("/auth/social/google/", {"id_token": "t"}, format="json")
         assert response.status_code == 200

@@ -7,6 +7,9 @@ DEFAULTS = {
     "EMAIL_CONFIRM_URL_PATH": "/confirm-email/{uid}/{token}/",
     "LOGIN_MAGIC_LINK_URL_PATH": "/login/magic/{uid}/{token}/",
     "GOOGLE_CLIENT_ID": None,
+    # Extra accepted audiences (e.g. one OAuth client per platform). Merged
+    # with GOOGLE_CLIENT_ID.
+    "GOOGLE_CLIENT_IDS": (),
     "API_DEBUG_LOGGER_ENABLED": False,
     "API_DEBUG_LOGGER_PATH_PREFIX": "/api/",
     "API_DEBUG_LOGGER_MAX_BODY_CHARS": 6000,
